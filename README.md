@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# df-2026-t184-dev
 
-## Getting Started
+DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジトリ。
+提出用の公開リポジトリは `Devfest-Hackathon-2026/df-2026-t184`。**提出時は最終版のコードと資料だけを、履歴を持ち込まずにコピーする。**
 
-First, run the development server:
+## 構成
+- Next.js（App Router / TypeScript / Tailwind）
+- Firebase（Auth / Firestore / App Hosting）
+- Gemini API（`src/app/api/gemini/route.ts`、キーはサーバー側のみ）
 
+## セットアップ
 ```bash
+npm install
+cp .env.example .env.local   # 値を入れる（.env.local はコミットしない）
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Firebase CLI（初回のみ）:
+```bash
+npm i -g firebase-tools
+firebase login
+firebase use --add            # プロジェクトを選ぶ（.firebaserc が作られる）
+firebase emulators:start      # Auth / Firestore エミュレータ
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 秘密情報のルール
+- `.env.local`、サービスアカウント鍵、API キーは**絶対にコミットしない**。`.env.example` には変数名だけ書く。
+- Gemini のキーは `GEMINI_API_KEY`（`NEXT_PUBLIC_` を付けない）。本番は Secret Manager に置く。
+- `NEXT_PUBLIC_FIREBASE_*` は公開される設定値。守るのは Firestore ルールと Auth。
+- CI で gitleaks を回している。ローカルの pre-commit も有効。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ブランチ運用
+`main` に直接 push せず、`feat/<内容>` → PR → 1人レビューで merge。
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 役割
+| 担当 | 主な役割 |
+|---|---|
+| クマタニ | 技術リード（FE/BE・Gemini 連携） |
+| 山田 | PM・企画・発表資料・LP・QA |
+| 上田 | UI 部品・テスト・README/デモ台本 |

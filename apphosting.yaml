@@ -1,0 +1,14 @@
+# Firebase App Hosting 設定（Next.js をそのままデプロイ）
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 2
+
+env:
+  # 公開してよい設定値はここに書ける。
+  # - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  #   value: your-project-id
+  # 秘密は Cloud Secret Manager に置き、ここでは参照だけにする（値は書かない）。
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
