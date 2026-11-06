@@ -23,6 +23,28 @@ firebase use --add            # プロジェクトを選ぶ（.firebaserc が作
 firebase emulators:start      # Auth / Firestore エミュレータ
 ```
 
+## 実行方法
+
+| コマンド | 内容 |
+|---|---|
+| `npm run dev` | Next.js の開発サーバー（`/` に寄り道コンパスの画面遷移） |
+| `npm test` | vitest によるフロー・画面の操作テスト |
+| `npm run lint` | ESLint |
+| `npm run storybook` | Storybook（port 6006。ローカルの UI 確認用） |
+| `npm run build-storybook` | Storybook の静的ビルド（`storybook-static/`） |
+
+## 仮説モック（Storybook）
+
+`docs/REQUIREMENTS.md` の仮説草案を触って評価するためのモック。
+Storybook の **Hypothesis/仮説モック WalkApp** に 2 つの story がある。
+
+- **場面A: 日常の寄り道** — 日常の徒歩移動で寄り道先を決められない人向け
+- **場面B: 観光での寄り道** — 観光地の空き時間に自分好みの場所を探したい旅行者向け
+
+各 story の外枠に対象・困りごと・期待変化・評価質問と見本データの注意を表示し、
+その下で既存の寄り道→記録→思い出カード→ともだちの投稿までを一通り触れる。
+表示データはすべて見本。バックエンド・Google API 連携は含まない。
+
 ## 秘密情報のルール
 - `.env.local`、サービスアカウント鍵、API キーは**絶対にコミットしない**。`.env.example` には変数名だけ書く。
 - Gemini のキーは `GEMINI_API_KEY`（`NEXT_PUBLIC_` を付けない）。本番は Secret Manager に置く。
