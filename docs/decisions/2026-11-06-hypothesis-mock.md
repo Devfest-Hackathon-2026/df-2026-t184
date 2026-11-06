@@ -65,4 +65,21 @@
 
 ## 結果・検証（セッション終了時追記）
 
-（未追記: セッション終了時に追記する）
+- 成果物:
+  - `docs/REQUIREMENTS.md`: 要件仮説草案（場面A: 日常の徒歩移動 / 場面B: 観光地での滞在。災害時案内は仮説と検証質問の記録のみ、画面対象外）
+  - `src/features/walk/hypothesis/`: `scenarios.ts`（2シナリオの検証メタデータ）、`HypothesisFrame.tsx`（Storybook 外枠。対象・困りごと・期待変化・評価質問・見本データ注意を表示）、`WalkApp.stories.tsx`（場面A/B の2 story）、`hypothesis.test.tsx`
+  - `src/features/walk/WalkApp.tsx`: `initial` props を追加（シナリオの行き先初期値用）
+  - `README.md` に実行方法とモック導線、`docs/STATUS.md` に origin/main 時点とこのブランチの区別を追記
+- 前提: `feat/sticker-ui`（`4eccd717`）を本ブランチへ merge（`3d212bf`）して文書と Storybook を同梱
+- 検証:
+  - `npm test`（vitest）: 4 ファイル 17 テストすべて合格。新規 `hypothesis.test.tsx` 5 件は未実装状態で失敗を確認後、実装して合格を確認（Red/Green）
+  - `npm run lint`: エラーなし
+  - `npx next typegen` のうえ `npx tsc --noEmit`: エラーなし（typegen 前は `layout.tsx` の `LayoutProps` 未生成エラーのみで、Next.js 16 の生成型が原因の既知事項）
+  - `npm run build-storybook`: 成功。`storybook-static/index.json` に `場面A: 日常の寄り道`・`場面B: 観光での寄り道` の2 story を確認
+  - ブラウザでの目視確認・スクリーンショットは未実施（親からブラウザ作業の依頼がなく preview_* 使用禁止のため。sticker-design スキルのスクリーンショット手順は今回の承認範囲外）
+- commit:
+  - `3d212bf` merge: feat/sticker-ui 取り込み
+  - `b8da30a` docs: 本記録と要件仮説草案
+  - `47604b8` feat: 仮説モックのシナリオ外枠と story
+- PR: [#3](https://github.com/shun-os/df-2026-t184/pull/3)（draft。push・PR 本文更新は親が担当するため、コミット時点ではリモート未反映）
+- 残る未決定: 場面A/B の主対象、災害時案内仮説の扱い（メンバー評価待ち）、実データ連携の範囲、プロダクトカテゴリ確定（`docs/REQUIREMENTS.md` 未決定事項）
