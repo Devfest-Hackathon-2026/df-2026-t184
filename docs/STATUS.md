@@ -1,7 +1,25 @@
 # 実装状況メモ（コード調査ベース）
 
-確認日: **2026-11-06**。調査対象: `origin/main` = `44dda48919066d6514b7c4f71b94a19a9e64c14e`。
-以下はすべてコード・設定ファイルを読んで確認した**観測事実**であり、PM の正式確認は別途必要。
+この文書は2つの時点を区別して書く。
+
+- **「観測事実（origin/main）」**: `origin/main` = `44dda48919066d6514b7c4f71b94a19a9e64c14e` 時点の記録（確認日 2026-11-06）。そのまま残してあり、現状とは一致しない
+- **「このブランチ（feat/hackathon-context + PR #3 同梱後）」**: `feat/sticker-ui`（`4eccd717b59589f6a31020150b1b938f1a75b342`）を取り込んだあとの観測。以下はすべてコード・設定ファイルを読んで確認した**観測事実**であり、PM の正式確認は別途必要
+
+## このブランチ（feat/hackathon-context + PR #3 同梱後）の観測事実
+
+- `feat/sticker-ui` を merge したため、main に無かったものがこのブランチにはある:
+  - プロダクト UI: `src/features/walk/`（入力→探索→ルート→記録→思い出カード→ともだちの寄り道）と `src/components/sticker/`。`src/app/page.tsx` は `WalkApp` を表示する
+  - Storybook: `.storybook/`・複数の `*.stories.tsx`・`storybook` / `@storybook/nextjs-vite` devDeps・`npm run storybook`（port 6006）
+  - テスト基盤: vitest + testing-library + jsdom（`vitest.config.mts`・`npm test`）
+  - デザイン文書: `docs/design/sticker.md`・`.claude/skills/sticker-design/`
+- 仮説モックの同梱（このPRで追加）:
+  - `docs/REQUIREMENTS.md`: 要件仮説草案（確定要件ではない。場面A: 日常の徒歩移動 / 場面B: 観光地での滞在、災害時案内は仮説の記録のみで画面対象外）
+  - `src/features/walk/hypothesis/`: `scenarios.ts`（2シナリオの検証メタデータ）・`HypothesisFrame.tsx`（Storybook 外枠）・`WalkApp.stories.tsx`・`hypothesis.test.tsx`
+  - `WalkApp` に `initial` props を追加（Storybook のシナリオが行き先の初期値を入れるため）
+  - バックエンド・Google API 連携は未追加。`/api/gemini`・`src/lib/firebase*` を UI から呼ぶコードは**依然として存在しない**
+- 観測上の位置づけの変化:
+  - Storybook は「feat/sticker-ui 系にのみ存在」→「このブランチに存在」（`docs/DECISIONS.md` D-004 の観測事実は origin/main 基準のためそのまま）
+  - 「main にプロダクト UI がない」は origin/main 時点の観測のまま。このブランチには UI があるが、main への取り込みは未実施
 
 ## 観測事実（origin/main）
 
