@@ -19,6 +19,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ### 判断のルール
 
 - 技術・インフラの提案・決定・設定は **PM（山田）** が行う。AI エージェントは候補とメリット/デメリット・実装根拠を提供し、**未決定事項を勝手に確定しない**
+- AI に開発作業を行うたび、作業前の短い確認と判断記録を [.agents/skills/own-the-why/SKILL.md](.agents/skills/own-the-why/SKILL.md) に従って行う。質問・回答・理由・会話参照は `docs/decisions/` に個別 Markdown で残す（`docs/DECISIONS.md` の D-XXX とは別系統）
 - 「コードから観測した事実」と「PM 確認待ち」を分けて記録する。採用済みの構成を勝手に取り消したり置き換えたりしない
 - 技術選定を行う・変える場合は `docs/DECISIONS.md` に候補（2つ以上）・メリット/デメリット・捨てた理由を記録する
 - 数値・統計・引用を書くときは出典を同じ行に付ける。根拠がなければ「（未記入: 要調査）」のまま残し、推測で埋めない
