@@ -8,6 +8,6 @@ type PaperScreenProps = { children: React.ReactNode; className?: string };
  */
 export const PaperScreen = ({ children, className }: PaperScreenProps): React.ReactElement => (
   <div className="kraft flex min-h-dvh justify-center p-2 sm:items-center sm:p-6">
-    <div className={cx("paper sticker-edge relative flex w-full max-w-[420px] flex-col overflow-hidden rounded-[28px] sm:min-h-[820px]", className)}>{children}</div>
+    <div className={cx("paper sticker-edge relative flex w-full max-w-md flex-col overflow-hidden rounded-4xl sm:min-h-205", className)}>{children}</div>
   </div>
 );

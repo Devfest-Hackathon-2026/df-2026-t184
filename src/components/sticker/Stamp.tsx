@@ -9,8 +9,8 @@ type StampProps = {
 export const Stamp = ({ children, className }: StampProps): React.ReactElement => (
   <span
     className={cx(
-      "inline-grid size-16 rotate-(--tilt-stamp) place-items-center rounded-full border-[3px] border-double border-coral-deep",
-      "text-center font-hand text-[11px] leading-tight text-coral-deep opacity-90 [mask-image:var(--paper-noise),linear-gradient(#000,#000)]",
+      "ink-worn inline-grid size-16 rotate-(--tilt-stamp) place-items-center rounded-full border-4 border-double border-coral-deep",
+      "text-center font-hand text-xs leading-tight text-coral-deep",
       className,
     )}
   >

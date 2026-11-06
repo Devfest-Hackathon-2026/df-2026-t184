@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { cx } from "./tokens";
 
 const FIELD_CLASS =
-  "w-full rounded-(--radius-chip) border-[2.5px] border-ink bg-sticker px-4 font-note text-base text-ink shadow-sticker-sm placeholder:text-ink-soft/70 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep";
+  "w-full rounded-(--radius-chip) border-3 border-ink bg-sticker px-4 font-note text-base text-ink shadow-sticker-sm placeholder:text-ink-soft focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep";
 
 type FieldShellProps = { id: string; label: string; hint?: string; children: React.ReactNode };
 
@@ -13,7 +13,7 @@ const FieldShell = ({ id, label, hint, children }: FieldShellProps): React.React
       {label}
     </label>
     {children}
-    {hint ? <p className="min-h-[1lh] text-xs text-ink-soft">{hint}</p> : null}
+    {hint ? <p className="min-h-lh text-xs text-ink-soft">{hint}</p> : null}
   </div>
 );
 

@@ -14,8 +14,7 @@ export const Tape = ({ tone = Tone.Lemon, angle = DEFAULT_ANGLE, className }: Ta
     aria-hidden="true"
     style={{ rotate: `${angle}deg` }}
     className={cx(
-      "pointer-events-none absolute block h-6 w-24 opacity-80",
-      "[clip-path:polygon(0_8%,4%_0,8%_10%,12%_0,100%_0,96%_12%,100%_24%,96%_40%,100%_56%,96%_72%,100%_88%,96%_100%,0_100%,4%_88%,0_74%,4%_58%,0_42%,4%_26%)]",
+      "tape-edge pointer-events-none absolute block h-6 w-24 opacity-80",
       TONE_FILL[tone],
       className,
     )}

@@ -15,6 +15,7 @@ type MascotProps = {
 };
 
 const DEFAULT_SIZE = 96;
+const NEEDLE_ORIGIN = { transformOrigin: "60px 30px" } as const;
 
 const Eyes = ({ mood }: { mood: MascotMood }): React.ReactElement => {
   if (mood === MascotMood.Calm) {
@@ -69,7 +70,7 @@ export const Mascot = ({ mood = MascotMood.Idle, size = DEFAULT_SIZE, className,
       aria-label={label}
       className={cx("sticker-fringe overflow-visible", className)}
     >
-      <g className={cx("origin-[60px_30px]", mood === MascotMood.Thinking ? "animate-[needle-spin_1.6s_linear_infinite]" : "animate-[needle-wiggle_2.4s_ease-in-out_infinite]")}>
+      <g style={NEEDLE_ORIGIN} className={mood === MascotMood.Thinking ? "animate-needle-spin" : "animate-needle-wiggle"}>
         <path d="M60 8 L69 32 L60 28 L51 32 Z" fill="var(--color-pink-deep)" stroke="var(--color-ink)" strokeWidth="2.5" strokeLinejoin="round" />
         <circle cx="60" cy="30" r="4" fill="var(--color-lemon-deep)" stroke="var(--color-ink)" strokeWidth="2.5" />
       </g>

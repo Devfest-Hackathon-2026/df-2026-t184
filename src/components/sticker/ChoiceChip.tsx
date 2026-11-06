@@ -18,8 +18,8 @@ export const ChoiceChip = ({ checked, onSelect, tone = Tone.Mint, tilt = 0, chil
     onClick={onSelect}
     style={{ rotate: `${tilt}deg` }}
     className={cx(
-      "rounded-(--radius-chip) border-[2.5px] border-ink text-ink transition-[transform,box-shadow,background-color] duration-150 ease-out",
-      "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep active:animate-[jelly_420ms_var(--ease-pop)]",
+      "rounded-(--radius-chip) border-3 border-ink text-ink transition-[transform,box-shadow,background-color] duration-150 ease-out",
+      "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep active:animate-jelly",
       checked ? cx(TONE_FILL[tone], "shadow-sticker") : "bg-sticker shadow-pressed hover:shadow-sticker-sm",
       className,
     )}

@@ -57,7 +57,7 @@ export const IconSticker = ({ name, tone = Tone.Sky, size = DEFAULT_ICON_SIZE, c
   <span
     aria-hidden="true"
     style={{ width: size, height: size }}
-    className={cx("inline-grid shrink-0 place-items-center rounded-full border-[2.5px] border-ink shadow-sticker-sm outline-[3px] outline-sticker", TONE_FILL[tone], className)}
+    className={cx("inline-grid shrink-0 place-items-center rounded-full border-2 border-ink shadow-sticker-sm outline-3 outline-sticker", TONE_FILL[tone], className)}
   >
     <svg viewBox="0 0 32 32" width={size * 0.66} height={size * 0.66} fill="none" stroke="var(--color-ink)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       {ICON_PATHS[name]}

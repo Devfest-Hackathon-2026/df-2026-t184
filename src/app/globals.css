@@ -45,6 +45,11 @@
   --tilt-stamp: -12deg;
 
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-jelly: jelly 420ms var(--ease-pop);
+  --animate-pop-in: pop-in 360ms var(--ease-pop);
+  --animate-needle-wiggle: needle-wiggle 2.4s ease-in-out infinite;
+  --animate-needle-spin: needle-spin 1.6s linear infinite;
 }
 
 :root {
@@ -84,6 +89,16 @@ body {
 @utility sticker-edge {
   border: 2.5px solid var(--color-ink);
   box-shadow: var(--shadow-sticker);
+}
+
+/* マスキングテープの両端のギザギザ */
+@utility tape-edge {
+  clip-path: polygon(0 8%, 4% 0, 8% 10%, 12% 0, 100% 0, 96% 12%, 100% 24%, 96% 40%, 100% 56%, 96% 72%, 100% 88%, 96% 100%, 0 100%, 4% 88%, 0 74%, 4% 58%, 0 42%, 4% 26%);
+}
+
+/* ハンコのかすれ */
+@utility ink-worn {
+  mask-image: var(--paper-noise), linear-gradient(#000, #000);
 }
 
 /* 白フチのステッカー */

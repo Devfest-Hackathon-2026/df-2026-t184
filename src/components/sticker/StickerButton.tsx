@@ -32,9 +32,9 @@ export const StickerButton = ({
     className={cx(
       "sticker-edge inline-flex items-center justify-center gap-2 rounded-(--radius-sticker) font-hand text-ink",
       "transition-[transform,box-shadow] duration-150 ease-out",
-      "hover:-translate-y-0.5 hover:shadow-sticker-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-pressed active:animate-[jelly_420ms_var(--ease-pop)]",
+      "hover:-translate-y-0.5 hover:shadow-sticker-lg active:translate-x-0.75 active:translate-y-0.75 active:shadow-pressed active:animate-jelly",
       "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-sky-deep",
-      "disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0",
+      "disabled:cursor-not-allowed disabled:border-ink-soft disabled:bg-paper-line disabled:text-ink-soft disabled:shadow-none disabled:hover:translate-y-0",
       plain ? "bg-sticker" : TONE_FILL[tone],
       SIZE_CLASS[size],
       className,
