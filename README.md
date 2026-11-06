@@ -9,6 +9,7 @@ DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジ�
 - Gemini API（`src/app/api/gemini/route.ts`、キーはサーバー側のみ）
 
 ## ドキュメント
+
 | ファイル | 内容 |
 |---|---|
 | `docs/HACKATHON.md` | ハッカソンの前提・必須ルール（二次資料の転記。公式原本とは未照合） |

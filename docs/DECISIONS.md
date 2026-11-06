@@ -57,8 +57,8 @@
 | 案 | メリット | デメリット |
 | --- | --- | --- |
 | Firebase App Hosting（観測上の現行） | Next.js をそのままデプロイ、Secret Manager と統合 | 実デプロイ未確認。無料枠・クレジットでの継続稼働の確認が必要 |
-| Cloud Run | 転記元チームの方針では最小構成例として挙がっていた | 未検証 |
-| Firebase Hosting（静的） | 安価 | SSR/API ルートをそのままでは動かせない |
+| Cloud Run | 大会指定の実行基盤の候補（特性は未調査） | 未検証 |
+| Firebase Hosting（静的） | 費用は要調査 | SSR/API ルートをそのままでは動かせない |
 
 ## D-003: Gemini の呼び出し方式（API キー方式・現状）
 
