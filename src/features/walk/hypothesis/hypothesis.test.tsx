@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { initialWalk, Screen } from "../flow";
 import { WalkApp } from "../WalkApp";
@@ -52,5 +52,32 @@ describe("WalkApp のシナリオ初期値", () => {
     const scenario = SCENARIOS[1];
     render(<WalkApp initial={{ ...initialWalk, screen: Screen.Input, dest: scenario.dest }} />);
     expect(screen.getByLabelText("行き先")).toHaveValue(scenario.dest);
+  });
+});
+
+
+describe("仮説モックの一連の体験", () => {
+  it.each(SCENARIOS)("$id: 入力から記録・思い出・投稿を経て入力に戻れる", (scenario) => {
+    vi.useFakeTimers();
+    try {
+      render(<WalkApp initial={{ ...initialWalk, dest: scenario.dest }} />);
+      fireEvent.click(screen.getByRole("button", { name: "寄り道ルートを作る" }));
+      for (let stage = 0; stage < 4; stage++) {
+        act(() => vi.advanceTimersByTime(700));
+      }
+      fireEvent.click(screen.getByRole("button", { name: "記録する" }));
+      fireEvent.change(screen.getByLabelText("ひとことメモ"), { target: { value: "静かな路地を見つけた" } });
+      fireEvent.click(screen.getByRole("button", { name: "記録して次へ" }));
+      fireEvent.click(screen.getByRole("button", { name: "見つけた" }));
+      fireEvent.click(screen.getByRole("button", { name: "見つけた" }));
+      fireEvent.click(screen.getByRole("button", { name: "ともだちの寄り道を見る" }));
+      expect(screen.getByRole("heading", { name: "ともだちの寄り道" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "思い出カードに戻る" }));
+      fireEvent.click(screen.getByRole("button", { name: "もう一度歩く" }));
+      expect(screen.getByLabelText("行き先")).toHaveValue(scenario.dest);
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
   });
 });
