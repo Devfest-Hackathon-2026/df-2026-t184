@@ -47,5 +47,5 @@ firebase emulators:start      # Auth / Firestore エミュレータ
 | 担当 | 主な役割 |
 |---|---|
 | クマタニ | 技術リード（FE/BE・Gemini 連携） |
-| 山田 | PM・企画・発表資料・LP・QA。**技術・インフラの提案・決定・設定は PM が行う**（AI エージェントは候補と根拠の提示まで。`AGENTS.md`・`docs/DECISIONS.md` 参照） |
+| 山田 | PM・企画・発表資料・LP・QA |
 | 上田 | UI 部品・テスト・README/デモ台本 |
