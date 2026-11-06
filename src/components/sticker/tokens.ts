@@ -49,5 +49,8 @@ export const TILT_CLASS: Record<Tilt, string> = {
   [Tilt.Slight]: "rotate-(--tilt-slight)",
 };
 
+/** マスの傾き。globals.css の --tilt-cell と同じ値。ChoiceChip の tilt（度）に渡す。 */
+export const TILT_CELL_DEG = 2;
+
 export const cx = (...parts: Array<string | false | null | undefined>): string =>
   parts.filter(Boolean).join(" ");

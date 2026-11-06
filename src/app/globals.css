@@ -26,8 +26,8 @@
   --color-lilac: #e8ddfb;
   --color-lilac-deep: #9a83dd;
 
-  --font-hand: var(--font-hand-face), "Hachi Maru Pop", "Hiragino Maru Gothic ProN", sans-serif;
-  --font-note: var(--font-note-face), "Yomogi", "Hiragino Maru Gothic ProN", sans-serif;
+  --font-hand: var(--font-hand-face, "Hachi Maru Pop"), "Hiragino Maru Gothic ProN", sans-serif;
+  --font-note: var(--font-note-face, "Yomogi"), "Hiragino Maru Gothic ProN", sans-serif;
 
   --shadow-sticker-sm: 3px 3px 0 var(--color-ink);
   --shadow-sticker: 4px 4px 0 var(--color-ink);
@@ -61,6 +61,17 @@ body {
   background: var(--color-kraft);
   color: var(--color-ink);
   font-family: var(--font-note);
+}
+
+/* 日本語の見出しやせりふは、文節の切れ目で折り返す */
+@layer base {
+  h1,
+  h2,
+  h3,
+  .font-hand {
+    word-break: auto-phrase;
+    text-wrap-style: balance;
+  }
 }
 
 ::selection {

@@ -30,7 +30,7 @@ export const StickerButton = ({
   <button
     type={type}
     className={cx(
-      "sticker-edge inline-flex items-center justify-center gap-2 rounded-(--radius-sticker) font-hand text-ink",
+      "sticker-edge inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--radius-sticker) font-hand text-ink",
       "transition-[transform,box-shadow] duration-150 ease-out",
       "hover:-translate-y-0.5 hover:shadow-sticker-lg active:translate-x-0.75 active:translate-y-0.75 active:shadow-pressed active:animate-jelly",
       "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-sky-deep",
