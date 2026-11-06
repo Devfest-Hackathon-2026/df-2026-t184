@@ -2,7 +2,7 @@
 
 - 日付: 2026-11-06
 - セッション参照: `t3-thread://v1/e6827db4-abbc-46ee-8379-f2f93821a8ab`（メッセージID: 未取得）
-- 質問手段: 親会話（T3 Code）での質問（質問UIの種別: 未取得）
+- 質問手段: 親会話（T3 Code）の `request_user_input_async`
 - 深さ: 短い確認に加えて dig 相当（1ラウンド2問）
 
 ## Q1: 毎回のAI開発での質問の深さ
@@ -14,8 +14,8 @@
 選択肢（候補）:
 
 - 毎回短く確認し、新しい判断があればdig、重要・未解決ならgrillingで深掘り（推奨）
-- 毎回dig
-- 毎回grilling
+- 変更の大小にかかわらず、毎回digの2〜4問を必須にする
+- 毎回grillingで判断を掘り切り、合意してから実装する
 
 回答（本人の回答を引用）:
 
@@ -33,8 +33,8 @@
 選択肢（候補）:
 
 - このPJ専用スキル＋AGENTS.md＋判断記録を作る（推奨）
-- CI検出などの強制も追加
-- 個人共通スキルにする
+- このPJ専用スキルに加え、記録漏れをCIで検出する仕組みも作る
+- 他のPJでも使う個人共通スキルとして作る
 
 回答（本人の回答を引用）:
 
@@ -46,6 +46,6 @@
 ## 結果・検証（セッション終了時追記）
 
 - 成果物: `.agents/skills/own-the-why/SKILL.md`、`docs/decisions/`（本記録・README）、`AGENTS.md`・`docs/DECISIONS.md`・`README.md` への導線
-- 検証: セッション内の検証結果を記録のコミットメッセージ/PR側で確認
-- commit: 本ファイルを含むコミット（feat/hackathon-context 上）
-- PR: 親作業者が既存の文書PR #3 へ push 予定
+- 検証: quick_validate.py 合格、git diff --check 合格、AGENTS.md のリンク解決を確認。新インフラ・軽微変更・回答待ち・個人スキル不在・理由未回答を机上レビュー（質問UIの自動実行テストではない）
+- 実装commit: `5ef9bfd087c635609e99e9d74d4d03808bb33f92`。その後のレビューで質問手段・選択肢の原文・検証結果を追記
+- PR: [#3](https://github.com/shun-os/df-2026-t184/pull/3)（draft、マージ前）
