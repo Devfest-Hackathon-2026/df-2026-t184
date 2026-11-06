@@ -67,8 +67,8 @@ export const RouteMap = ({ step, dest, variant = MapVariant.Full, className }: R
       <polygon points={CROWD_BAND} fill="var(--color-coral)" stroke="var(--color-coral-deep)" strokeWidth="2" strokeDasharray="4 4" />
       <path d="M44 70 L300 344" stroke="var(--color-ink-soft)" strokeWidth="3" strokeLinecap="round" opacity="0.45" />
       {mini ? null : (
-        <text x="268" y="262" fill="var(--color-coral-deep)" fontFamily="var(--font-hand)" fontSize="12">
-          人が多い
+        <text x="196" y="214" transform="rotate(47 196 214)" textAnchor="middle" fill="var(--color-coral-deep)" fontFamily="var(--font-hand)" fontSize="12">
+          人が多い通り
         </text>
       )}
       <path d={DETOUR_PATH} fill="none" stroke="var(--color-sticker)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
@@ -77,7 +77,7 @@ export const RouteMap = ({ step, dest, variant = MapVariant.Full, className }: R
         <path d={`M${GOAL.x} ${GOAL.y} v-30`} stroke="var(--color-ink)" strokeWidth="3" strokeLinecap="round" />
         <path d={`M${GOAL.x} ${GOAL.y - 30} l20 6 l-20 8 z`} fill="var(--color-lemon-deep)" stroke="var(--color-ink)" strokeWidth="2" strokeLinejoin="round" />
         {mini ? null : (
-          <text x={GOAL.x - 8} y={GOAL.y + 20} textAnchor="end" fill="var(--color-ink)" fontFamily="var(--font-hand)" fontSize="13">
+          <text x={GOAL.x - 10} y={GOAL.y - 14} textAnchor="end" fill="var(--color-ink)" fontFamily="var(--font-hand)" fontSize="13">
             {dest}
           </text>
         )}
