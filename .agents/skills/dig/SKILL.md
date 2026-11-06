@@ -58,5 +58,7 @@ description: 計画や判断に潜む暗黙の前提・リスクを、2〜4問�
 
 ## 出典・適応
 
+- 本スキルのライセンス: [GNU GPL v3](LICENSE)（原プラグインの表記: GPL-3.0）。PJ向け変更日: 2026-11-06
+
 - 出典: dig 3.0.1（作者: Kuu、<https://github.com/fumiya-kume/claude-code>、GPL-3.0）。作業環境ローカルのプラグインキャッシュ内 `cursor/skills/dig/SKILL.md`（SHA-256: `619b83abe07c127d82112657b8a807429a18e8df0325129606792ed53ae11084`）をもとにPJ向けへ適応
 - 適応点: 保存先を Cursor の PLAN.md から `docs/decisions/` に変更。質問手段をこの環境の優先順位（共通 reference 参照）に置き換え。コンテキスト収集の対象をこのPJの文書に合わせた。個人の絶対パスは実行の前提にしない
