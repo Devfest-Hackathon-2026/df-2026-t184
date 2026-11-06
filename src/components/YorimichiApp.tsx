@@ -1,26 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import RouteMap from "@/components/RouteMap";
+import { MAPS_API_KEY } from "@/lib/google-maps";
+import type { Quest } from "@/lib/quests";
 
 type Screen = "input" | "loading" | "route" | "capture" | "memory";
 
-type Quest = {
-  cp: string;
-  title: string;
-  why: string;
-  s: [number, number, number];
-  color: string;
-};
+type SampleQuest = Quest & { color: string };
 
-type Mood = {
+type SampleMood = {
   label: string;
   desc: string;
   essay: string;
-  quests: Quest[];
+  quests: SampleQuest[];
 };
 
 // 地名・口コミ・スコアはすべてサンプルデータ（モックと同じ）
-const MOODS: Mood[] = [
+const MOODS: SampleMood[] = [
   {
     label: "静けさ優先",
     desc: "人の少ない路地や小道を選ぶ",
@@ -118,6 +115,11 @@ export default function YorimichiApp() {
   const [shots, setShots] = useState([false, false, false]);
   const [memos, setMemos] = useState(["", "", ""]);
   const [shared, setShared] = useState(false);
+  const [aiQuests, setAiQuests] = useState<Quest[] | null>(null);
+  const [aiFailed, setAiFailed] = useState(false);
+  const runRef = useRef(0);
+  const [mapFailed, setMapFailed] = useState(false);
+  const useRealMap = !!MAPS_API_KEY && !mapFailed; // キー未設定・読込失敗時は従来のSVG地図
 
   const timers = useRef<{ iv?: ReturnType<typeof setInterval>; t?: ReturnType<typeof setTimeout> }>({});
   useEffect(() => {
@@ -130,7 +132,9 @@ export default function YorimichiApp() {
 
   const M = MOODS[mood];
   const qi = Math.min(step, 2);
-  const q = M.quests[qi];
+  // Gemini の結果があればそれを使い、なければサンプル。写真ダミーの色は気分ごとのサンプルから借りる
+  const quests = aiQuests ? aiQuests.map((a, i) => ({ ...a, color: M.quests[i].color })) : M.quests;
+  const q = quests[qi];
   const extraMin = EXTRA[budget];
   const dot = (i: number) => (step > i ? C.teal : step === i ? C.amber : C.gray);
 
@@ -142,17 +146,48 @@ export default function YorimichiApp() {
     setMemos(["", "", ""]);
     setShared(false);
     clearInterval(timers.current.iv);
+    setAiQuests(null);
+    setAiFailed(false);
+    const runId = ++runRef.current;
+
+    // Gemini でクエストを作る。目的地が空・失敗・不正な出力のときは null（サンプルを使う）
+    const request: Promise<Quest[] | null> = dest.trim()
+      ? fetch("/api/quests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dest: dest.trim(), mood, budget }),
+          signal: AbortSignal.timeout(25_000),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => (Array.isArray(d?.quests) && d.quests.length === 3 ? (d.quests as Quest[]) : null))
+          .catch(() => null)
+      : Promise.resolve(null);
+
+    // 演出（4段階）が終わり、かつ結果が返ったら地図へ。結果待ちの間は最後の段階で待つ
+    let animDone = false;
+    let result: Quest[] | null | undefined;
+    const finish = () => {
+      if (runId !== runRef.current) return;
+      setAiQuests(result ?? null);
+      setAiFailed(dest.trim() !== "" && !result);
+      setStage(4);
+      setScreen("route");
+    };
     let n = 0;
     timers.current.iv = setInterval(() => {
       n += 1;
       if (n >= 4) {
         clearInterval(timers.current.iv);
-        setStage(4);
-        setScreen("route");
+        animDone = true;
+        if (result !== undefined) finish();
       } else {
         setStage(n);
       }
     }, 650);
+    request.then((r) => {
+      result = r;
+      if (animDone) finish();
+    });
   };
 
   const advance = (to: Screen) => {
@@ -168,6 +203,7 @@ export default function YorimichiApp() {
 
   const restart = () => {
     clearInterval(timers.current.iv);
+    runRef.current += 1; // 実行中のGemini結果を捨てる
     setScreen("input");
     setStep(0);
     setStage(0);
@@ -338,6 +374,9 @@ export default function YorimichiApp() {
 
         {screen === "route" && (
           <div style={{ height: "100%", position: "relative", background: C.map }}>
+            {useRealMap ? (
+              <RouteMap dest={dest} places={aiQuests ? aiQuests.map((a) => a.cp) : undefined} step={step} onError={() => setMapFailed(true)} />
+            ) : (
             <svg width="390" height="540" viewBox="0 0 390 540" style={{ position: "absolute", left: 0, top: 0 }} role="img" aria-label="混雑エリアを避けた寄り道ルートと最短ルートを重ねた地図">
               <rect width="390" height="540" fill={C.map} />
               <path d="M0 500 C90 470 160 520 250 490 S360 470 390 480 L390 540 L0 540 Z" fill="#C8DCE0" />
@@ -366,6 +405,7 @@ export default function YorimichiApp() {
               <circle cx={POS[Math.min(step, 3)].x} cy={POS[Math.min(step, 3)].y} r="18" fill={C.ink} opacity=".15" />
               <circle cx={POS[Math.min(step, 3)].x} cy={POS[Math.min(step, 3)].y} r="8" fill={C.ink} stroke="#fff" strokeWidth="3" />
             </svg>
+            )}
             <div style={{ position: "absolute", left: 16, top: 48, right: 16, display: "flex", gap: 8, alignItems: "center" }}>
               <button onClick={restart} aria-label="入力に戻る" style={btn({ width: 44, height: 44, borderRadius: 999, border: 0, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(27,36,51,.12)" })}>
                 <BackIcon />
@@ -374,6 +414,11 @@ export default function YorimichiApp() {
               <span style={chip(C.sub)}>実線: 最短</span>
               <span style={chip("#8A5A12")}>混雑を回避</span>
             </div>
+            {aiFailed && (
+              <div role="status" style={{ position: "absolute", left: 16, right: 16, top: 104, background: C.ink, color: C.bg, borderRadius: 12, padding: "8px 12px", fontSize: 12, fontWeight: 700 }}>
+                AIがうまく動かなかったため、サンプルのクエストを表示しています
+              </div>
+            )}
             <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 344, boxSizing: "border-box", background: "#fff", borderRadius: "24px 24px 0 0", padding: "12px 20px 26px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 -6px 24px rgba(27,36,51,.15)" }}>
               <div style={{ width: 40, height: 4, borderRadius: 2, background: C.line, alignSelf: "center" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -479,7 +524,7 @@ export default function YorimichiApp() {
             </div>
             <div style={{ background: "#fff", borderRadius: 18, padding: 14, boxShadow: "0 6px 20px rgba(27,36,51,.12)", display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
-                {M.quests.map((x, i) => (
+                {quests.map((x, i) => (
                   <div key={x.cp} style={{ height: 104, borderRadius: 10, overflow: "hidden", background: C.map, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {shots[i] ? <Photo color={x.color} label={`${x.cp}の写真（ダミー）`} /> : <span style={{ fontSize: 11, color: C.sub }}>写真なし</span>}
                   </div>
@@ -489,7 +534,7 @@ export default function YorimichiApp() {
                 {new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll("/", ".")} ／ チェックポイント 3/3 達成
               </div>
               <p style={{ margin: 0, fontSize: 15, lineHeight: 1.9 }}>{M.essay}</p>
-              {M.quests.map((x, i) =>
+              {quests.map((x, i) =>
                 memos[i] ? (
                   <div key={x.cp} style={{ fontSize: 12, lineHeight: 1.6, color: C.sub, borderTop: `1px dashed ${C.line}`, paddingTop: 6 }}>
                     <b style={{ color: C.ink }}>{x.cp}</b>　{memos[i]}

@@ -1,0 +1,148 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { loadGoogleMaps } from "@/lib/google-maps";
+
+type LatLng = google.maps.LatLngLiteral;
+
+// 位置情報が使えない・目的地が見つからない場合の既定値（サンプル）
+const DEFAULT_START: LatLng = { lat: 35.6812, lng: 139.7671 }; // 東京駅
+const DEFAULT_DEST = "上野公園";
+
+const COLORS = { teal: "#1F6F78", amber: "#E8A33D", gray: "#8A93A3", ink: "#1B2433" };
+
+function getStart(): Promise<LatLng> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(DEFAULT_START);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => resolve(DEFAULT_START),
+      { timeout: 5000, maximumAge: 60_000 },
+    );
+  });
+}
+
+async function geocode(text: string): Promise<LatLng | null> {
+  const { Geocoder } = (await google.maps.importLibrary("geocoding")) as google.maps.GeocodingLibrary;
+  try {
+    const res = await new Geocoder().geocode({ address: text || DEFAULT_DEST, region: "JP" });
+    const loc = res.results[0]?.geometry.location;
+    return loc ? { lat: loc.lat(), lng: loc.lng() } : null;
+  } catch {
+    return null;
+  }
+}
+
+function distKm(a: LatLng, b: LatLng): number {
+  const dy = (a.lat - b.lat) * 111;
+  const dx = (a.lng - b.lng) * 111 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.hypot(dx, dy);
+}
+
+// 出発地→目的地の間に、横にずらしたチェックポイントを3つ置く（仮置き。ルート生成APIにつなぐまでのサンプル）
+function sampleCheckpoints(a: LatLng, b: LatLng): LatLng[] {
+  const dLat = b.lat - a.lat;
+  const dLng = b.lng - a.lng;
+  const offsets = [0.22, -0.2, 0.18];
+  return [0.25, 0.55, 0.8].map((t, i) => ({
+    lat: a.lat + dLat * t - dLng * offsets[i],
+    lng: a.lng + dLng * t + dLat * offsets[i],
+  }));
+}
+
+type Props = {
+  dest: string;
+  places?: string[]; // チェックポイント名（Gemini の提案）。地名検索で座標にする
+  step: number; // 0..3（達成済みチェックポイント数）
+  onError: () => void;
+};
+
+export default function RouteMap({ dest, places, step, onError }: Props) {
+  const placesKey = places?.join("|") ?? "";
+  const el = useRef<HTMLDivElement>(null);
+  const markers = useRef<{ cps: google.maps.marker.PinElement[]; me?: google.maps.marker.AdvancedMarkerElement; path: LatLng[] }>({ cps: [], path: [] });
+  const stepRef = useRef(step);
+  stepRef.current = step;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadGoogleMaps();
+        const [{ Map, Polyline }, { AdvancedMarkerElement, PinElement }] = await Promise.all([
+          google.maps.importLibrary("maps") as Promise<google.maps.MapsLibrary>,
+          google.maps.importLibrary("marker") as Promise<google.maps.MarkerLibrary>,
+        ]);
+        const [start, end] = await Promise.all([getStart(), geocode(dest)]);
+        if (cancelled || !el.current) return;
+        const goal = end ?? { lat: 35.7148, lng: 139.7745 }; // 上野公園付近
+        // 提案された場所を目的地の周辺で検索。見つからない・遠すぎるものは仮の位置にする
+        const fallback = sampleCheckpoints(start, goal);
+        const found = placesKey
+          ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`)))
+          : [];
+        if (cancelled || !el.current) return;
+        const cps = fallback.map((f, i) => {
+          const g = found[i];
+          return g && distKm(g, goal) < 5 ? g : f;
+        });
+        const path = [start, ...cps, goal];
+        markers.current.path = path;
+
+        const map = new Map(el.current, {
+          mapId: "DEMO_MAP_ID",
+          center: start,
+          zoom: 14,
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: "greedy",
+        });
+
+        // 最短ルート（仮：直線）と寄り道ルート（点線）
+        new Polyline({ map, path: [start, goal], strokeColor: COLORS.gray, strokeWeight: 5, strokeOpacity: 0.9 });
+        new Polyline({
+          map,
+          path,
+          strokeOpacity: 0,
+          icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: COLORS.teal, strokeWeight: 4, scale: 2 }, offset: "0", repeat: "10px" }],
+        });
+
+        new AdvancedMarkerElement({ map, position: goal, content: new PinElement({ background: COLORS.amber, borderColor: "#fff", glyphColor: "#fff" }).element, title: "目的地" });
+
+        markers.current.cps = cps.map((pos, i) => {
+          const pin = new PinElement({ glyph: String(i + 1), glyphColor: "#fff", borderColor: "#fff" });
+          new AdvancedMarkerElement({ map, position: pos, content: pin.element, title: `チェックポイント${i + 1}` });
+          return pin;
+        });
+
+        const dotEl = document.createElement("div");
+        dotEl.style.cssText = `width:16px;height:16px;border-radius:50%;background:${COLORS.ink};border:3px solid #fff;box-shadow:0 0 0 8px rgba(27,36,51,.15)`;
+        markers.current.me = new AdvancedMarkerElement({ map, position: start, content: dotEl, title: "現在地", zIndex: 10 });
+
+        const bounds = new google.maps.LatLngBounds();
+        path.forEach((p) => bounds.extend(p));
+        map.fitBounds(bounds, { top: 110, right: 40, bottom: 380, left: 40 }); // 下のカードと上のチップを避ける
+        paint(stepRef.current);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) onError();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dest, placesKey]);
+
+  function paint(s: number) {
+    const { cps, me, path } = markers.current;
+    cps.forEach((pin, i) => {
+      pin.background = s > i ? COLORS.teal : s === i ? COLORS.amber : COLORS.gray;
+    });
+    if (me) me.position = path[Math.min(s, 3)];
+  }
+
+  useEffect(() => paint(step), [step]);
+
+  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 540 }} />;
+}
