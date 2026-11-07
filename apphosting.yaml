@@ -3,12 +3,20 @@ runConfig:
   cpu: 1
   memoryMiB: 512
   minInstances: 0
+  # 費用と Gemini の呼び出し回数を抑えるため上限は小さくしておく
   maxInstances: 2
 
 env:
-  # 公開してよい設定値はここに書ける。
-  # - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-  #   value: your-project-id
   # 秘密は Cloud Secret Manager に置き、ここでは参照だけにする（値は書かない）。
   - variable: GEMINI_API_KEY
     secret: GEMINI_API_KEY
+    availability:
+      - RUNTIME
+
+  # Maps のキーはブラウザに公開される値だが、リポジトリに書くと gitleaks に検出されるため
+  # Secret Manager に置く。NEXT_PUBLIC_ はビルド時に埋め込まれるので BUILD も必要。
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME
