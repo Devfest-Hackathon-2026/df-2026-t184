@@ -23,6 +23,11 @@ firebase use --add            # プロジェクトを選ぶ（.firebaserc が作
 firebase emulators:start      # Auth / Firestore エミュレータ
 ```
 
+## Google Maps
+- `.env.local` に `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` を入れる（未設定ならSVGのサンプル地図で動く）。
+- このキーはブラウザに公開される。Cloud Console で **HTTP リファラー制限**（localhost と本番URL）と、**Maps JavaScript API / Geocoding API のみ**に絞ること。
+- 位置情報が使えない時の出発地は東京駅、目的地が見つからない時は上野公園付近。
+
 ## 秘密情報のルール
 - `.env.local`、サービスアカウント鍵、API キーは**絶対にコミットしない**。`.env.example` には変数名だけ書く。
 - Gemini のキーは `GEMINI_API_KEY`（`NEXT_PUBLIC_` を付けない）。本番は Secret Manager に置く。
