@@ -1,5 +1,5 @@
-import { WalkApp } from "@/features/walk/WalkApp";
+import YorimichiApp from "@/components/YorimichiApp";
 
 export default function Home() {
-  return <WalkApp />;
+  return <YorimichiApp />;
 }
