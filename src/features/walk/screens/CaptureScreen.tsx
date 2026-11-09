@@ -5,6 +5,7 @@ import {
   IconSticker,
   Mascot,
   MascotMood,
+  ScreenHeading,
   SpeechBubble,
   StickerButton,
   StickerCard,
@@ -42,7 +43,7 @@ export const CaptureScreen = ({ state, dispatch }: CaptureScreenProps): React.Re
           <p className="font-hand text-sm text-ink-soft">
             チェックポイント {index + 1} / {CHECKPOINTS}
           </p>
-          <h1 className="font-hand text-xl leading-snug text-ink">{quest.checkpoint}</h1>
+          <ScreenHeading className="font-hand text-xl leading-snug text-ink">{quest.checkpoint}</ScreenHeading>
         </div>
       </header>
 

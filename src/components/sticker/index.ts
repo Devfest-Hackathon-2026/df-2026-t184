@@ -4,6 +4,7 @@ export { IconName, IconSticker } from "./IconSticker";
 export { Cluster, Stack } from "./Layout";
 export { Mascot, MascotMood } from "./Mascot";
 export { PaperScreen } from "./PaperScreen";
+export { ScreenHeading } from "./ScreenHeading";
 export { BubbleTail, SpeechBubble } from "./SpeechBubble";
 export { Stamp } from "./Stamp";
 export { ButtonSize, ButtonVariant, StickerButton } from "./StickerButton";

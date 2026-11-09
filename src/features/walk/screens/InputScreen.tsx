@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 
-import { BubbleTail, ButtonSize, Doodle, DoodleKind, Mascot, MascotMood, SpeechBubble, StickerButton, Tape, TextField, Tone } from "@/components/sticker";
+import { BubbleTail, ButtonSize, Doodle, DoodleKind, Mascot, MascotMood, ScreenHeading, SpeechBubble, StickerButton, Tape, TextField, Tone } from "@/components/sticker";
 
 import { BudgetPicker } from "../components/BudgetPicker";
 import { EtaNote } from "../components/EtaNote";
@@ -44,7 +44,7 @@ export const InputScreen = ({ state, dispatch }: InputScreenProps): React.ReactE
         </div>
         <div className="relative pt-10">
           <Tape tone={Tone.Pink} angle={TAPE_ANGLE} className="top-0 right-4" />
-          <h1 className="font-hand text-2xl leading-snug text-ink">最短じゃない道で、まだ知らない街へ</h1>
+          <ScreenHeading className="font-hand text-2xl leading-snug text-ink">最短じゃない道で、まだ知らない街へ</ScreenHeading>
         </div>
       </header>
 

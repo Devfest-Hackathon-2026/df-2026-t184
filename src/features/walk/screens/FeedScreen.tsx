@@ -1,4 +1,4 @@
-import { BubbleTail, cx, Doodle, DoodleKind, IconName, IconSticker, Mascot, MascotMood, SpeechBubble, Tilt } from "@/components/sticker";
+import { BubbleTail, cx, Doodle, DoodleKind, IconName, IconSticker, Mascot, MascotMood, ScreenHeading, SpeechBubble, Tilt } from "@/components/sticker";
 
 import { FeedCard } from "../components/FeedCard";
 import { SAMPLE_FEED } from "../content";
@@ -30,7 +30,7 @@ export const FeedScreen = ({ onBack }: FeedScreenProps): React.ReactElement => (
         </button>
       ) : null}
       <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="font-hand text-2xl text-ink">ともだちの寄り道</h1>
+        <ScreenHeading className="font-hand text-2xl text-ink">ともだちの寄り道</ScreenHeading>
         <p className="text-xs text-ink-soft">ここに並ぶのは見本の投稿です</p>
       </div>
     </header>

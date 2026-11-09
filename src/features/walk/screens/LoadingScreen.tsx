@@ -1,4 +1,4 @@
-import { BubbleTail, Doodle, DoodleKind, Mascot, MascotMood, SpeechBubble } from "@/components/sticker";
+import { BubbleTail, Doodle, DoodleKind, Mascot, MascotMood, ScreenHeading, SpeechBubble } from "@/components/sticker";
 
 import { LoadingStages } from "../components/LoadingStages";
 import { moodById } from "../content";
@@ -17,6 +17,7 @@ export const LoadingScreen = ({ state }: LoadingScreenProps): React.ReactElement
   const mood = moodById(state.mood);
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
+      <ScreenHeading className="sr-only">ルートを探しています</ScreenHeading>
       <div className="flex flex-col items-center gap-4">
         <SpeechBubble tail={BubbleTail.Bottom} className="text-base">
           口コミから裏道を探しているよ

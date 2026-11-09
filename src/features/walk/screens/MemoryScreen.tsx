@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { BubbleTail, ButtonSize, ButtonVariant, IconName, IconSticker, Mascot, MascotMood, SpeechBubble, StickerButton, Toast } from "@/components/sticker";
+import { BubbleTail, ButtonSize, ButtonVariant, IconName, IconSticker, Mascot, MascotMood, ScreenHeading, SpeechBubble, StickerButton, Toast } from "@/components/sticker";
 
 import { MemoryCard } from "../components/MemoryCard";
 import { moodById } from "../content";
@@ -42,7 +42,7 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
         </SpeechBubble>
       </div>
 
-      <h1 className="font-hand text-2xl text-ink">今日の思い出カード</h1>
+      <ScreenHeading className="font-hand text-2xl text-ink">今日の思い出カード</ScreenHeading>
 
       <MemoryCard
         dest={state.dest}
@@ -63,7 +63,9 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
         </StickerButton>
       </div>
 
-      <div className="flex min-h-12 justify-center">{copied ? <Toast>共有リンクをコピーしました</Toast> : null}</div>
+      <div aria-live="polite" className="flex min-h-12 justify-center">
+        {copied ? <Toast>見本：共有リンクは実際にはコピーされません</Toast> : null}
+      </div>
 
       {onOpenFeed ? (
         <button
