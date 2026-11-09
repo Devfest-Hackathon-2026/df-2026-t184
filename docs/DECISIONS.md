@@ -88,3 +88,35 @@ AI 開発セッション中の質問・回答・理由の記録は `docs/decisio
 - デプロイの有無・公開 URL・Regional Day（転記では 11/14）までの継続稼働計画
 - 会場区分（オンライン/現地）と提出物一式（説明ドキュメント・動画・著作物利用シート）の担当と進捗
 - `.env.example` の不在（README が参照しているが main にファイルがない）
+
+
+## D-005: PR連動の共有stg・main連動のprodデプロイ
+
+- 日付: 2026-11-09
+- 背景: 同一GCPプロジェクト内のstg/prodに、CI成功後の自動反映を接続する。
+- ユーザー指示: PR→stg、main→prod。レビュー対応と専用PRコメント化は本セッションで承認済み。
+- 技術の比較・実装根拠はAIによる整理。OIDC/CLIの個別選定理由について本人の発言は未記録。PMの正式な技術選定の追認は未確認。
+
+- テーマ: GitHub Actions から App Hosting への認証とデプロイ方式
+- 候補:
+
+| 案 | メリット | デメリット |
+| --- | --- | --- |
+| A. OIDC/WIF（採用） | SA鍵の配布・ローテーション不要。providerのattribute-conditionでrepo/owner ID・event・ref・workflow_refを固定できる | 設定が複雑。workflow_runに限定されるためworkflow改修が絡むと条件見直しが必要 |
+| B. SA鍵をGitHub Secretsに保管 | 実装が単純 | 長期鍵の漏洩リスク・ローテーション運用が発生。鍵をリポジトリ外へ出す |
+
+| 案 | メリット | デメリット |
+| --- | --- | --- |
+| A. Actions CLI デプロイ（採用） | 既存CIの成功をworkflow_runで受けて同じパイプラインで処理できる。共有stgへのPR連動・選定ロジックをコードで制御できる | 権限・選定・待機の実装を自分で持つ |
+| B. Developer Connect + App Hosting自動ロールアウト | GitHub接続・ブランチ連動デプロイがマネージド | PR連動の共有stgデプロイや「CI成功時のみ」の条件を外側で別途組む必要がある。既存CIとの連携が弱い |
+
+- 決定と理由: OIDC + Actions CLI。鍵を作らない方針と、PR連動の共有stgという
+  要件に既存CIを直接組み合わせられる点が理由。ユーザー本人の選定理由の
+  発言は未記録（実装上の選択はAIによる設計）。
+- 捨てた案を選ばなかった理由: SA鍵はローテーション運用と漏洩面が残る。
+  Developer Connect は共有stgへのPR連動・既存CIゲートの条件を外で組む
+  必要があり、今回の要件に合わない。
+
+
+- 初回有効化: 両環境をpausedにして導入し、権限検証とstg実機成功後にprodを解除する。ビルドSA権限・条件付きIAM・BUILDシークレットの検証を省略しない。
+- 詳細: [判断記録](decisions/2026-11-09-ci-cd-apphosting.md)、[環境手順](environments.md)。

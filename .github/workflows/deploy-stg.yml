@@ -1,0 +1,200 @@
+name: Deploy stg
+
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy to yorimichi-stg
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_repository.fork == false &&
+      vars.DEPLOY_STG_PAUSED != 'true'
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write # OIDC (Workload Identity Federation) 用
+    concurrency:
+      group: apphosting-deploy-stg
+      cancel-in-progress: false
+    outputs:
+      deployed: ${{ steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true' }}
+      uri: ${{ steps.backend.outputs.uri }}
+    env:
+      GCP_PROJECT_ID: df-2026-t184-prod
+      GCP_REGION: asia-east1
+      BACKEND_ID: yorimichi-stg
+      EXPECTED_ENV: stg
+      EXPECTED_SA: yorimichi-stg@df-2026-t184-prod.iam.gserviceaccount.com
+      FIREBASE_TOOLS_VERSION: "15.35.0"
+      API_BASE: https://firebaseapphosting.googleapis.com/v1beta/projects/df-2026-t184-prod/locations/asia-east1/backends/yorimichi-stg
+    steps:
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Check candidate is current
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_ENV: stg
+        run: python3 trusted/scripts/check-deploy-candidate.py
+
+      - name: Checkout PR head
+        if: steps.candidate.outputs.deployable == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          persist-credentials: false
+          path: source
+
+      - name: Set up Node.js
+        if: steps.candidate.outputs.deployable == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prepare fixed deployment configuration
+        if: steps.candidate.outputs.deployable == 'true'
+        env:
+          DEPLOY_ENV: stg
+        run: python3 trusted/scripts/prepare-deploy-source.py trusted source
+
+      - name: Install firebase-tools
+        if: steps.candidate.outputs.deployable == 'true'
+        run: npm install -g "firebase-tools@${FIREBASE_TOOLS_VERSION}"
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        if: steps.candidate.outputs.deployable == 'true'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_STG }}
+          service_account: ${{ vars.GCP_DEPLOY_SA_STG }}
+          create_credentials_file: true
+          export_environment_variables: true
+          token_format: access_token
+
+      - name: Verify backend identity
+        id: backend
+        if: steps.candidate.outputs.deployable == 'true'
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          backend=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" "${API_BASE}")
+          env_name=$(jq -r '.environment' <<<"${backend}")
+          if [ "${env_name}" != "${EXPECTED_ENV}" ]; then
+            echo "::error::backend ${BACKEND_ID} has environment '${env_name}', expected '${EXPECTED_ENV}'"
+            exit 1
+          fi
+          sa=$(jq -r '.serviceAccount' <<<"${backend}")
+          if [ "${sa}" != "${EXPECTED_SA}" ]; then
+            echo "::error::backend ${BACKEND_ID} runs as '${sa}', expected '${EXPECTED_SA}'"
+            exit 1
+          fi
+          uri=$(jq -r '.uri' <<<"${backend}")
+          echo "BACKEND_URI=${uri}" >> "$GITHUB_ENV"
+          echo "uri=${uri}" >> "$GITHUB_OUTPUT"
+          echo "backend ${BACKEND_ID} (env=${env_name}, sa=${sa}) uri=${uri}"
+
+      - name: Wait for in-flight rollouts
+        if: steps.candidate.outputs.deployable == 'true'
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: python3 trusted/scripts/apphosting-rollouts.py wait
+
+      - name: Record job start time
+        if: steps.candidate.outputs.deployable == 'true'
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+      # PR head が待機中に進んだ場合は選定が古くなるので skip する。
+      # 新しい head はそれ自身の CI workflow_run で別ジョブがデプロイする。
+      - name: Recheck candidate after waiting
+        id: recheck
+        if: steps.candidate.outputs.deployable == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_ENV: stg
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+        run: python3 trusted/scripts/check-deploy-candidate.py
+
+      - name: Deploy
+        if: steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true'
+        working-directory: source
+        run: >-
+          firebase deploy
+          --only "apphosting:${BACKEND_ID}"
+          --project "${GCP_PROJECT_ID}"
+          --non-interactive
+          --force
+
+      - name: Verify rollout succeeded
+        if: steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true'
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: python3 trusted/scripts/apphosting-rollouts.py verify
+
+      - name: Smoke check
+        if: steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true'
+        run: |
+          code=000
+          for _ in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${BACKEND_URI}" || true)
+            case "${code}" in 2*|3*) break;; esac
+            sleep 5
+          done
+          case "${code}" in
+            2*|3*) echo "https://${BACKEND_URI} -> HTTP ${code}";;
+            *) echo "::error::https://${BACKEND_URI} returned HTTP ${code}"; exit 1;;
+          esac
+
+  report:
+    name: Record stg deploy in PR comment
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # deploy ジョブ全体が成功し、実際にデプロイが走ったときだけ実行する
+    # (deploy + verify + smoke check 成功が前提)。スキップ時は PR を触らない。
+    if: >-
+      needs.deploy.result == 'success' &&
+      needs.deploy.outputs.deployed == 'true'
+    # PR への専用コメント投稿だけに権限を限定する。OIDC (id-token) は付けない。
+    # checkout は trusted (main) 側スクリプトのみで、PR 由来のコードや
+    # アーティファクトは使わない。追記型のため本文・他人のコメントは読み書きしない。
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    # 全PR共通のgroupだと後続の報告がpending置換で消える。run単位にして、
+    # 同じrun再実行の重複投稿はスクリプト側のbot+marker+run URL照合で防ぐ。
+    concurrency:
+      group: apphosting-report-stg-${{ github.run_id }}
+      cancel-in-progress: false
+    env:
+      DEPLOYED_URI: ${{ needs.deploy.outputs.uri }}
+      DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Post deploy comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 trusted/scripts/report-stg-deploy.py

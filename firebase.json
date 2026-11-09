@@ -25,7 +25,9 @@
         ".env",
         ".env*",
         "**/.env",
-        "**/.env*"
+        "**/.env*",
+        "gha-creds-*.json",
+        "**/gha-creds-*.json"
       ]
     },
     {
@@ -41,7 +43,9 @@
         ".env",
         ".env*",
         "**/.env",
-        "**/.env*"
+        "**/.env*",
+        "gha-creds-*.json",
+        "**/gha-creds-*.json"
       ]
     }
   ],

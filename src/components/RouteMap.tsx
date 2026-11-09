@@ -54,10 +54,21 @@ type Props = {
   dest: string;
   places?: string[]; // チェックポイント名（Gemini の提案）。地名検索で座標にする
   step: number; // 0..3（達成済みチェックポイント数）
+  onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
   onError: () => void;
 };
 
-export default function RouteMap({ dest, places, step, onError }: Props) {
+// 出発地→目的地の線の上で、どれくらい進んだ位置か（0=出発地、1=目的地）
+function progress(a: LatLng, b: LatLng, p: LatLng): number {
+  const dx = b.lng - a.lng;
+  const dy = b.lat - a.lat;
+  const len2 = dx * dx + dy * dy;
+  return len2 === 0 ? 0 : ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / len2;
+}
+
+export default function RouteMap({ dest, places, step, onOrder, onError }: Props) {
+  const onOrderRef = useRef(onOrder);
+  onOrderRef.current = onOrder;
   const placesKey = places?.join("|") ?? "";
   const el = useRef<HTMLDivElement>(null);
   const markers = useRef<{ cps: google.maps.marker.PinElement[]; me?: google.maps.marker.AdvancedMarkerElement; path: LatLng[] }>({ cps: [], path: [] });
@@ -66,6 +77,7 @@ export default function RouteMap({ dest, places, step, onError }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    let ro: ResizeObserver | undefined;
     (async () => {
       try {
         await loadGoogleMaps();
@@ -82,12 +94,28 @@ export default function RouteMap({ dest, places, step, onError }: Props) {
           ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`)))
           : [];
         if (cancelled || !el.current) return;
-        const cps = fallback.map((f, i) => {
+        const found3 = fallback.map((f, i) => {
           const g = found[i];
           return g && distKm(g, goal) < 5 ? g : f;
         });
+        // 行ったり来たりしないよう、出発地から目的地へ向かう順に並べる（クエストの順番も呼び出し側で揃える）
+        const order = found3.map((_, i) => i).sort((x, y) => progress(start, goal, found3[x]) - progress(start, goal, found3[y]));
+        const cps = order.map((i) => found3[i]);
+        onOrderRef.current?.(order);
         const path = [start, ...cps, goal];
         markers.current.path = path;
+
+        // 下のカードの高さに合わせて、地図の枠の下端を決める（カードの高さが変わっても追従）
+        const mapEl = el.current;
+        const card = mapEl.parentElement?.querySelector<HTMLElement>("[data-route-card]");
+        const fitToCard = () => {
+          mapEl.style.bottom = `${card?.offsetHeight ?? 360}px`;
+        };
+        fitToCard();
+        if (card) {
+          ro = new ResizeObserver(fitToCard);
+          ro.observe(card);
+        }
 
         const map = new Map(el.current, {
           mapId: "DEMO_MAP_ID",
@@ -121,7 +149,12 @@ export default function RouteMap({ dest, places, step, onError }: Props) {
 
         const bounds = new google.maps.LatLngBounds();
         path.forEach((p) => bounds.extend(p));
-        map.fitBounds(bounds, { top: 110, right: 40, bottom: 380, left: 40 }); // 下のカードと上のチップを避ける
+        // 地図の枠そのものを「下のカードより上」だけにする。余白の計算に頼らず、見える範囲にぴったり収まる
+        map.fitBounds(bounds, { top: 100, right: 40, bottom: 40, left: 40 });
+        // 2点が近いと寄りすぎるので、拡大しすぎないようにする
+        google.maps.event.addListenerOnce(map, "idle", () => {
+          if ((map.getZoom() ?? 0) > 16) map.setZoom(16);
+        });
         paint(stepRef.current);
       } catch (e) {
         console.error(e);
@@ -130,6 +163,7 @@ export default function RouteMap({ dest, places, step, onError }: Props) {
     })();
     return () => {
       cancelled = true;
+      ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dest, placesKey]);
@@ -144,5 +178,5 @@ export default function RouteMap({ dest, places, step, onError }: Props) {
 
   useEffect(() => paint(step), [step]);
 
-  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 540 }} />;
+  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, right: 0 }} />;
 }
