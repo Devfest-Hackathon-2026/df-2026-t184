@@ -41,3 +41,10 @@
 - commit: このファイル更新時点の `git log` を参照（マージ基底 + DS 5件 + page.tsx 復帰 + server-only + フォント復帰）
 - 検証: `npm ci` / `npm test` / `npx tsc --noEmit` / `npm run lint` / `npm run build-storybook` / `npm run build` を実施し、結果は親エージェントへ報告
 - PR: 未作成・未更新（push 待ち）
+
+## CI失敗の追加対応
+
+- 依頼: 「これ4がci失敗しているので確認してもらっていいでしょうか？」。既存PRのCI復旧として対応。
+- 観測: 初回はgitleaksアーカイブ取得失敗。再実行では別ブランチの文書のプロジェクトIDを誤検出した（対象コミットはPRの祖先ではない）。
+- 修正: 取得にHTTPエラー検出・再試行を追加。走査対象をHEADと全祖先へ明示し、他ブランチの変更を混在させない。検出ルールやファイルの除外は追加しない。
+- 検証: ローカルgitleaksで41コミットを検査し検出0件、diff --check成功。リモートCIはpush後に確認する。
