@@ -35,7 +35,7 @@ def build_block(uri, sha, run_url, repo_url, when):
         f'（プロジェクト `{PROJECT_ID}` /'
         ' [コンソール](https://console.firebase.google.com/project/'
         f'{PROJECT_ID}/firestore/databases/{DATABASE_ID}/data)）'
-        'はこの PR 専用ではなく、他の PR のデプロイで内容が上書きされる場合があります。\n'
+        'は全 PR で共用します。別の PR のデプロイにより、上記 URL で表示されるアプリが変わります。\n'
         f'{MARK_END}')
 
 
