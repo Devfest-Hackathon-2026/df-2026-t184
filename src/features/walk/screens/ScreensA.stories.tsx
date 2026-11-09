@@ -1,12 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useReducer } from "react";
 
 import { PaperScreen } from "@/components/sticker";
 
-import { initialWalk, MoodId, Screen, walkReducer, type WalkState } from "../flow";
-import { InputScreen } from "./InputScreen";
+import { initialWalk, MoodId, Screen, type WalkState } from "../flow";
+import { WalkApp } from "../WalkApp";
 import { LoadingScreen } from "./LoadingScreen";
-import { RouteScreen } from "./RouteScreen";
 
 const meta: Meta = { title: "Walk/Screens A", parameters: { layout: "fullscreen" } };
 export default meta;
@@ -16,37 +14,33 @@ type Story = StoryObj;
 const SAMPLE_DEST = "上野公園";
 const MID_STAGE = 2;
 
-const Phone = ({ children }: { children: React.ReactNode }): React.ReactElement => (
-  <div className="mx-auto w-97.5">
-    <PaperScreen>{children}</PaperScreen>
+/**
+ * 実際の画面遷移（walkReducer + 探索タイマー）をそのまま使う。
+ * 初期状態だけ変えて、途中の画面から確認できるようにする。
+ */
+const Flow = ({ initial }: { initial: WalkState }): React.ReactElement => (
+  <div className="mx-auto w-full max-w-97.5">
+    <WalkApp initial={initial} />
   </div>
 );
 
-const InputDemo = ({ initial }: { initial: WalkState }): React.ReactElement => {
-  const [state, dispatch] = useReducer(walkReducer, initial);
-  return <Phone>{state.screen === Screen.Input ? <InputScreen state={state} dispatch={dispatch} /> : <LoadingScreen state={state} />}</Phone>;
-};
-
-export const InputEmpty: Story = { render: () => <InputDemo initial={initialWalk} /> };
+export const InputEmpty: Story = { render: () => <Flow initial={initialWalk} /> };
 
 export const InputFilled: Story = {
-  render: () => <InputDemo initial={{ ...initialWalk, dest: SAMPLE_DEST, mood: MoodId.Retro, budget: 30 }} />,
+  render: () => <Flow initial={{ ...initialWalk, dest: SAMPLE_DEST, mood: MoodId.Retro, budget: 30 }} />,
 };
 
+/** 探索中の途中表示（静止画）。段階の進行自体は InputFilled から実際に進められる。 */
 export const Loading: Story = {
   render: () => (
-    <Phone>
-      <LoadingScreen state={{ ...initialWalk, screen: Screen.Loading, dest: SAMPLE_DEST, mood: MoodId.Quiet, stage: MID_STAGE }} />
-    </Phone>
+    <div className="mx-auto w-full max-w-97.5">
+      <PaperScreen>
+        <LoadingScreen state={{ ...initialWalk, screen: Screen.Loading, dest: SAMPLE_DEST, mood: MoodId.Quiet, stage: MID_STAGE }} />
+      </PaperScreen>
+    </div>
   ),
 };
 
-const RouteDemo = ({ initial }: { initial: WalkState }): React.ReactElement => {
-  const [state, dispatch] = useReducer(walkReducer, initial);
-  if (state.screen === Screen.Input) return <Phone><InputScreen state={state} dispatch={dispatch} /></Phone>;
-  return <Phone><RouteScreen state={state} dispatch={dispatch} /></Phone>;
-};
-
 export const Route: Story = {
-  render: () => <RouteDemo initial={{ ...initialWalk, screen: Screen.Route, dest: SAMPLE_DEST, mood: MoodId.Quiet, step: 1 }} />,
+  render: () => <Flow initial={{ ...initialWalk, screen: Screen.Route, dest: SAMPLE_DEST, mood: MoodId.Quiet, step: 1 }} />,
 };
