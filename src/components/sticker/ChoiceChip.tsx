@@ -18,7 +18,7 @@ type ChoiceChipProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "onS
  * ラベルと同じ枠の中に置く。選ぶと色が付いて影が浮く。
  */
 export const ChoiceChip = ({ name, checked, onSelect, disabled, tone = Tone.Mint, tilt = 0, children, className, ...rest }: ChoiceChipProps): React.ReactElement => (
-  <label className="block" style={{ rotate: `${tilt}deg` }}>
+  <label className={cx("block cursor-pointer", disabled && "cursor-not-allowed")} style={{ rotate: `${tilt}deg` }}>
     <input
       type="radio"
       name={name}
