@@ -46,7 +46,7 @@ export function resolveAppEnvironment(
  * 環境に対応する Firestore データベース ID を解決する。
  * - stg / prod: 環境と一致する名前付き DB の指定を必須とし、
  *   不一致・未指定・(default) へのフォールバックはすべて拒否する
- * - local: エミュレータ用。実環境のDB名を拒否し、省略時は (default)。
+ * - local: ルール設定済みのエミュレータ (default) DB のみ許可。
  */
 export function resolveFirestoreDatabaseId(
   appEnv: AppEnvironment,
@@ -54,10 +54,10 @@ export function resolveFirestoreDatabaseId(
 ): string | undefined {
   const normalized = databaseId?.trim();
   if (appEnv === "local") {
-    if (normalized === FIRESTORE_DATABASE_IDS.stg || normalized === FIRESTORE_DATABASE_IDS.prod) {
-      throw new Error("local では実環境のDB名を使用できません。実DBには stg / prod を明示してください。");
+    if (normalized && normalized !== "(default)") {
+      throw new Error("local ではルール設定済みの (default) DB のみ使用できます。実DBには stg / prod を明示してください。");
     }
-    return normalized || undefined;
+    return undefined;
   }
   const expected = FIRESTORE_DATABASE_IDS[appEnv];
   if (!normalized) {

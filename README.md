@@ -22,8 +22,7 @@ Firebase CLI（初回のみ）:
 ```bash
 npm i -g firebase-tools
 firebase login
-firebase use --add            # プロジェクトを選ぶ（.firebaserc が作られる）
-firebase emulators:start --project demo-yorimichi # Auth / Firestore エミュレータ
+firebase emulators:start --config firebase.emulator.json --project demo-yorimichi # Auth / Firestore エミュレータ
 ```
 
 ## Google Maps

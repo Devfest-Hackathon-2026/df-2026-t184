@@ -69,12 +69,13 @@ describe("resolveFirestoreDatabaseId", () => {
     expect(() => resolveFirestoreDatabaseId("prod", undefined)).toThrow();
   });
 
-  it("is optional in local and passes an explicit value through", () => {
+  it("only allows the configured default emulator database in local", () => {
     expect(resolveFirestoreDatabaseId("local", undefined)).toBeUndefined();
     expect(resolveFirestoreDatabaseId("local", "")).toBeUndefined();
     expect(() => resolveFirestoreDatabaseId("local", "yorimichi-stg")).toThrow();
     expect(() => resolveFirestoreDatabaseId("local", "yorimichi-prod")).toThrow();
-    expect(resolveFirestoreDatabaseId("local", "demo-db")).toBe("demo-db");
+    expect(() => resolveFirestoreDatabaseId("local", "demo-db")).toThrow();
+    expect(resolveFirestoreDatabaseId("local", "(default)")).toBeUndefined();
   });
 });
 

@@ -30,7 +30,7 @@ stg と prod の 2 環境を同居させている。Auth は環境間で共有�
 - `stg` / `prod` では `NEXT_PUBLIC_FIREBASE_DATABASE_ID` が必須で、
   値は環境と一致している必要がある（`stg`→`yorimichi-stg`、`prod`→`yorimichi-prod`）。
   不一致・未指定・`(default)` へのフォールバックはすべてFirebaseモジュール読み込み時エラー。
-- `local` のFirebase利用は `NEXT_PUBLIC_FIREBASE_EMULATOR=true` が必須。DB ID省略時はエミュレータの `(default)` を使い、実環境のDB名は拒否する。
+- `local` のFirebase利用は `NEXT_PUBLIC_FIREBASE_EMULATOR=true` が必須。DB ID省略時はエミュレータの `(default)` を使い、名前付きDBは拒否する。
 - `stg` / `prod` ではエミュレータフラグを `false` または未設定にする。Admin SDK用のエミュレータホスト変数も解除する。矛盾する設定は拒否する。
 - `NEXT_PUBLIC_APP_ENV` の値が `stg`/`prod`/`local` 以外なら常にエラー。
 
@@ -46,6 +46,7 @@ stg と prod の 2 環境を同居させている。Auth は環境間で共有�
 | `apphosting.stg.yaml` | stg 固有（APP_ENV、DB ID、stg Web アプリ ID、STG_* シークレット参照、max 1） |
 | `apphosting.prod.yaml` | prod 固有（同上 PROD_* 版、max 2） |
 | `firebase.json` | 名前付き DB ごとの rules/indexes、App Hosting ローカルソース設定、エミュレータ |
+| `firebase.emulator.json` | local専用の単一DB・ルール・エミュレータ設定 |
 | `.firebaserc` | デフォルトプロジェクト `df-2026-t184-prod` |
 | `.env.local` | ローカル開発用（`.env.example` をコピー。コミットしない） |
 
@@ -111,8 +112,10 @@ npm run dev
 
 - 既定の `local` はエミュレータ専用。`.env.example` のまま次を実行する:
   ```bash
-  firebase emulators:start --project demo-yorimichi
+  firebase emulators:start --config firebase.emulator.json --project demo-yorimichi
   ```
+  複数DB用の `firebase.json` で起動するとルールが読み込まれないCLIがあるため、
+  必ず専用設定を指定する。localではこの設定の `(default)` DBだけを許可する。
   APIキーとprojectIdが空なら `demo-key` / `demo-yorimichi` を補う。ブラウザと
   Admin SDKの両方がAuth `localhost:9099`、Firestore `localhost:8080` に接続する。
   Admin SDKでは `FIREBASE_AUTH_EMULATOR_HOST` / `FIRESTORE_EMULATOR_HOST` を自動設定する。
