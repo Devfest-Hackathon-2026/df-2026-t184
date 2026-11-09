@@ -5,12 +5,12 @@ type StampProps = {
   className?: string;
 };
 
-/** 朱色のハンコ。少しかすれて、-12° 傾いて押されている。 */
+/** 達成のしるし。アクセント色の細い円に文字を入れる。 */
 export const Stamp = ({ children, className }: StampProps): React.ReactElement => (
   <span
     className={cx(
-      "ink-worn inline-grid size-16 rotate-(--tilt-stamp) place-items-center rounded-full border-4 border-double border-coral-ink",
-      "text-center font-hand text-xs leading-tight text-coral-ink",
+      "inline-grid size-16 place-items-center rounded-full border-2 border-accent bg-accent-soft p-1",
+      "text-center font-hand text-xs leading-tight text-ink",
       className,
     )}
   >

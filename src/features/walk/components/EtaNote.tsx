@@ -1,4 +1,4 @@
-import { StickerCard, Tilt, Tone } from "@/components/sticker";
+import { StickerCard, Tone } from "@/components/sticker";
 
 import { Budget, eta } from "../flow";
 
@@ -6,7 +6,7 @@ type EtaNoteProps = {
   budget: Budget;
 };
 
-/** 最短の直線と、くねくね回る点線を並べた小さな落書き。 */
+/** 最短の直線と、回り道の点線を並べた小さな図。 */
 const DetourDoodle = (): React.ReactElement => (
   <svg aria-hidden="true" viewBox="0 0 64 40" className="h-10 w-16 shrink-0" fill="none" strokeLinecap="round">
     <path d="M6 10 H58" stroke="var(--color-ink-soft)" strokeWidth="2.5" />
@@ -20,7 +20,7 @@ const DetourDoodle = (): React.ReactElement => (
 export const EtaNote = ({ budget }: EtaNoteProps): React.ReactElement => {
   const { total, extra } = eta(budget);
   return (
-    <StickerCard tone={Tone.Lemon} tilt={Tilt.Slight} className="flex items-center gap-3 px-4 py-3">
+    <StickerCard tone={Tone.Lemon} className="flex items-center gap-3 px-4 py-3">
       <DetourDoodle />
       <p className="flex flex-col">
         <span className="font-hand text-xl">約{total}分</span>

@@ -7,7 +7,6 @@ import { StickerCheckbox } from "./StickerCheckbox";
 import { ChoiceChip } from "./ChoiceChip";
 import { Cluster, Stack } from "./Layout";
 import { TextAreaField, TextField } from "./TextField";
-import { Tone } from "./tokens";
 
 const meta: Meta = { title: "Design System/Catalog" };
 export default meta;
@@ -16,7 +15,7 @@ type Story = StoryObj;
 
 const Swatch = ({ name, className, border }: { name: string; className: string; border?: boolean }): React.ReactElement => (
   <figure className="flex w-28 flex-col gap-1">
-    <div className={`h-14 rounded-(--radius-chip) ${border ? "border-3 border-border" : ""} ${className}`} />
+    <div className={`h-14 rounded-(--radius-chip) ${border ? "border border-border" : ""} ${className}`} />
     <figcaption className="font-note text-xs text-fg-subtle">{name}</figcaption>
   </figure>
 );
@@ -73,7 +72,7 @@ export const Spacing: Story = {
       <div className="flex items-end gap-4">
         {[1, 2, 4].map((n) => (
           <figure key={n} className="flex flex-col items-center gap-1">
-            <div className="border-2 border-dashed border-border-subtle bg-mint" style={{ width: 22 * n, height: 22 * n }} />
+            <div className="border border-dashed border-border-subtle bg-mint" style={{ width: 22 * n, height: 22 * n }} />
             <figcaption className="font-note text-xs text-fg-subtle">{n}マス</figcaption>
           </figure>
         ))}
@@ -104,7 +103,7 @@ export const Buttons: Story = {
     <Stack gap="gap-4">
       <Cluster gap="gap-3">
         <StickerButton>主操作（solid / lemon）</StickerButton>
-        <StickerButton tone={Tone.Mint}>達成・進行（mint）</StickerButton>
+        <StickerButton>達成・進行（mint）</StickerButton>
         <StickerButton variant={ButtonVariant.Plain}>副操作（plain）</StickerButton>
         <StickerButton variant={ButtonVariant.Danger}>削除（danger）</StickerButton>
       </Cluster>
@@ -135,11 +134,11 @@ const ChoiceDemo = (): React.ReactElement => {
       <legend className="float-left w-full p-0 pb-2 font-hand text-sm text-ink">今の気分（実際のラジオ。矢印キーで移動できる）</legend>
       <Cluster gap="gap-3">
         {[
-          ["a", "静けさ", Tone.Mint],
-          ["b", "レトロ", Tone.Pink],
-          ["c", "グルメ", Tone.Lemon],
-        ].map(([value, label, tone]) => (
-          <ChoiceChip key={value} name="ds-mood" value={value as string} checked={picked === value} onSelect={() => setPicked(value as string)} tone={tone as Tone} className="px-4 py-2 font-hand">
+          ["a", "静けさ"],
+          ["b", "レトロ"],
+          ["c", "グルメ"],
+        ].map(([value, label]) => (
+          <ChoiceChip key={value} name="ds-mood" value={value} checked={picked === value} onSelect={() => setPicked(value)} className="px-4 py-2 font-hand">
             {label}
           </ChoiceChip>
         ))}
@@ -180,7 +179,7 @@ export const Layouts: Story = {
         <p className="font-hand text-sm">Cluster — 横に並べて折り返す</p>
         <Cluster gap="gap-2" className="mt-2">
           {["静けさ", "レトロ", "グルメ", "路地", "水辺"].map((t) => (
-            <span key={t} className="rounded-full border-2 border-border bg-pink px-2.5 py-1 font-hand text-xs">
+            <span key={t} className="rounded-full border border-border bg-pink px-2.5 py-1 font-hand text-xs">
               {t}
             </span>
           ))}

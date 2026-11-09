@@ -1,8 +1,7 @@
-import { ButtonVariant, cx, IconName, IconSticker, StickerButton, Tape, Tone } from "@/components/sticker";
+import { ButtonVariant, cx, IconName, IconSticker, StickerButton, Tone } from "@/components/sticker";
 
 const SHOOT_ICON_SIZE = 56;
 const RETAKE_ICON_SIZE = 28;
-const PHOTO_TAPE_ANGLE = -4;
 const SAMPLE_PHOTO_LABEL = "撮影した写真（見本）";
 
 const toneVar = (tone: Tone, deep: boolean): string => `var(--color-${tone}${deep ? "-deep" : ""})`;
@@ -40,8 +39,8 @@ export const PhotoSlot = ({ taken, tone, caption, onShoot }: PhotoSlotProps): Re
         type="button"
         onClick={onShoot}
         className={cx(
-          "flex aspect-4/3 w-full flex-col items-center justify-center gap-3 rounded-(--radius-sticker) border-3 border-dashed border-ink bg-sticker font-hand text-lg text-ink",
-          "transition-[transform,box-shadow] duration-150 ease-out hover:shadow-sticker-sm active:animate-jelly",
+          "flex aspect-4/3 w-full flex-col items-center justify-center gap-3 rounded-(--radius-sticker) border border-dashed border-line bg-sticker font-hand text-lg text-ink",
+          "transition-[transform,box-shadow] duration-150 ease-out hover:shadow-sticker-sm",
           "focus-visible:focus-ring",
         )}
       >
@@ -52,9 +51,8 @@ export const PhotoSlot = ({ taken, tone, caption, onShoot }: PhotoSlotProps): Re
   }
   return (
     <div className="flex flex-col items-end gap-3 pt-3">
-      <figure className="sticker-edge relative w-full rotate-(--tilt-left) rounded-sm bg-sticker p-3 pb-2 animate-pop-in">
-        <Tape tone={Tone.Pink} angle={PHOTO_TAPE_ANGLE} className="-top-3 left-1/2 -translate-x-1/2" />
-        <div className="overflow-hidden border-2 border-ink">
+      <figure className="sticker-edge relative w-full rounded-sm bg-sticker p-3 pb-2 animate-pop-in">
+        <div className="overflow-hidden border border-line">
           <PhotoArt tone={tone} label={SAMPLE_PHOTO_LABEL} className="aspect-4/3" />
         </div>
         <figcaption className="pt-2 text-center font-hand text-sm text-ink">{caption}</figcaption>

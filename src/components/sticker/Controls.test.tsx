@@ -7,7 +7,6 @@ import { ChoiceChip } from "./ChoiceChip";
 import { ButtonVariant, StickerButton } from "./StickerButton";
 import { StickerCheckbox } from "./StickerCheckbox";
 import { TextField } from "./TextField";
-import { Tone } from "./tokens";
 
 describe("StickerButton", () => {
   it("danger バリアントは危険色で描かれる", () => {
@@ -45,13 +44,12 @@ describe("TextField", () => {
     expect(screen.getByLabelText(/行き先/)).toBeRequired();
   });
 
-  it("disabled は薄い面・細い線・影なし・カーソル禁止になる", () => {
+  it("disabled は薄い面・影なし・カーソル禁止になる", () => {
     render(<TextField id="fd" label="行き先" disabled />);
     const input = screen.getByLabelText("行き先");
     expect(input).toBeDisabled();
     expect(input).toHaveClass(
       "disabled:cursor-not-allowed",
-      "disabled:border-border-subtle",
       "disabled:bg-surface-disabled",
       "disabled:text-fg-subtle",
       "disabled:shadow-none",
@@ -87,7 +85,7 @@ describe("ChoiceChip", () => {
   it("選ぶと onSelect が呼ばれる", () => {
     const onSelect = vi.fn();
     render(
-      <ChoiceChip name="mood" checked={false} onSelect={onSelect} tone={Tone.Mint}>
+      <ChoiceChip name="mood" checked={false} onSelect={onSelect}>
         静けさ優先
       </ChoiceChip>,
     );

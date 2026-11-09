@@ -3,7 +3,7 @@ import { cx } from "./tokens";
 type PaperScreenProps = { children: React.ReactNode; className?: string };
 
 /**
- * アプリ 1 画面分の紙。外側はクラフト紙の枠、内側は方眼の紙。
+ * アプリ 1 画面分の地。外側は薄いグレー、内側は画面の地の色。
  * 画面幅いっぱいのスマホでは枠を細く、PC では端末幅に収める。
  */
 export const PaperScreen = ({ children, className }: PaperScreenProps): React.ReactElement => (

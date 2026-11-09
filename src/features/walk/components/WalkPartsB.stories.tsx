@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 
-import { Tilt, Tone } from "@/components/sticker";
+import { Tone } from "@/components/sticker";
 
 import { moodById, SAMPLE_FEED } from "../content";
 import { MoodId } from "../flow";
@@ -42,8 +42,8 @@ export const Memory: Story = {
 export const Feed: Story = {
   render: () => (
     <div className="flex w-88 flex-col gap-10">
-      <FeedCard post={SAMPLE_FEED[0]} tilt={Tilt.Left} />
-      <FeedCard post={SAMPLE_FEED[1]} tilt={Tilt.Right} />
+      <FeedCard post={SAMPLE_FEED[0]} />
+      <FeedCard post={SAMPLE_FEED[1]} />
     </div>
   ),
 };

@@ -1,8 +1,7 @@
-import { Stamp, Tape } from "@/components/sticker";
+import { Stamp } from "@/components/sticker";
 
 import { MOCK_DATA_NOTICE, type Scenario } from "./scenarios";
 
-const TAPE_ANGLE = -9;
 
 type HypothesisFrameProps = {
   scenario: Scenario;
@@ -26,9 +25,8 @@ export const HypothesisFrame = ({ scenario, children }: HypothesisFrameProps): R
   <div className="flex flex-col items-center gap-6 py-4">
     <section
       aria-label={`検証用モック ${scenario.label}`}
-      className="relative w-full max-w-97.5 rounded-(--radius-sticker) border-3 border-ink bg-sticker p-5 font-note shadow-sticker"
+      className="relative w-full max-w-97.5 rounded-(--radius-sticker) border border-line bg-sticker p-5 font-note shadow-sticker"
     >
-      <Tape tone={scenario.tone} angle={TAPE_ANGLE} className="-top-3 left-6" />
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <p className="font-hand text-xs text-ink-soft">検証用モック（仮説・未検証）</p>
@@ -54,7 +52,7 @@ export const HypothesisFrame = ({ scenario, children }: HypothesisFrameProps): R
         </ul>
       </div>
 
-      <p className="mt-3 border-t-2 border-dashed border-ink-soft pt-3 text-xs leading-relaxed text-ink-soft">
+      <p className="mt-3 border-t border-dashed border-line pt-3 text-xs leading-relaxed text-ink-soft">
         {MOCK_DATA_NOTICE}
       </p>
     </section>

@@ -9,7 +9,7 @@ type StickerCheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" |
   className?: string;
 };
 
-/** マスのような小さなチェックボックス。中身は本物の <input type="checkbox">。 */
+/** 小さなチェックボックス。中身は本物の <input type="checkbox">。 */
 export const StickerCheckbox = ({ checked, onChange, disabled, children, className, ...rest }: StickerCheckboxProps): React.ReactElement => (
   <label className={cx("inline-flex items-center gap-2", disabled ? "cursor-not-allowed" : "cursor-pointer", className)}>
     <span className="relative inline-grid shrink-0 place-items-center">
@@ -24,8 +24,8 @@ export const StickerCheckbox = ({ checked, onChange, disabled, children, classNa
       <span
         aria-hidden="true"
         className={cx(
-          "size-6 rounded-md border-3 border-ink bg-surface-raised shadow-pressed transition-[background-color,box-shadow] duration-150 ease-out",
-          "peer-checked:border-ink peer-checked:bg-mint peer-checked:shadow-sticker-sm",
+          "size-6 rounded-md border border-ink-soft bg-surface-raised transition-[background-color,border-color] duration-150 ease-out",
+          "peer-checked:border-accent peer-checked:bg-accent",
           "peer-focus-visible:focus-ring",
           "peer-disabled:border-border-subtle peer-disabled:bg-surface-disabled peer-disabled:shadow-none",
         )}

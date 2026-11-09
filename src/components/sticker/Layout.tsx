@@ -3,7 +3,7 @@ import type { HTMLAttributes } from "react";
 import { cx } from "./tokens";
 
 type LayoutProps = HTMLAttributes<HTMLDivElement> & {
-  /** Tailwind の gap クラス名。既定は gap-3。方眼 1 マスは gap-grid。 */
+  /** Tailwind の gap クラス名。既定は gap-3。余白の基準は gap-grid。 */
   gap?: string;
 };
 

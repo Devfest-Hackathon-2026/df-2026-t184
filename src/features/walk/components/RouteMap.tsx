@@ -36,7 +36,7 @@ const positionOf = (step: number): Point => {
 
 /**
  * 手描きの散歩地図。人が多い通りを最短の直線として薄く引き、
- * その横を回り道する点線が寄り道ルート。地点は番号付きのシールで貼る。
+ * その横を回り道する点線が寄り道ルート。地点は番号付きの丸で示す。
  */
 export const RouteMap = ({ step, dest, variant = MapVariant.Full, className }: RouteMapProps): React.ReactElement => {
   const me = positionOf(step);

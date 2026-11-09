@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { cx } from "./tokens";
 
 const FIELD_CLASS =
-  "w-full rounded-(--radius-chip) border-3 border-ink bg-surface-raised px-4 font-note text-base text-ink shadow-sticker-sm placeholder:text-fg-subtle focus-visible:focus-ring aria-invalid:border-danger disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-surface-disabled disabled:text-fg-subtle disabled:shadow-none disabled:placeholder:text-fg-subtle";
+  "w-full rounded-2xl bg-surface-raised px-4 font-note text-base text-ink caret-accent shadow-sticker-sm placeholder:text-fg-subtle focus-visible:focus-ring aria-invalid:ring-2 aria-invalid:ring-danger disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-fg-subtle disabled:shadow-none disabled:placeholder:text-fg-subtle";
 
 type FieldShellProps = {
   id: string;

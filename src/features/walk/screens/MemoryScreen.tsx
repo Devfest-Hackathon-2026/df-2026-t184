@@ -2,13 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { BubbleTail, ButtonSize, ButtonVariant, IconName, IconSticker, Mascot, MascotMood, ScreenHeading, SpeechBubble, StickerButton, Toast } from "@/components/sticker";
+import { ButtonSize, ButtonVariant, IconName, IconSticker, ScreenHeading, StickerButton, Toast } from "@/components/sticker";
 
 import { MemoryCard } from "../components/MemoryCard";
 import { moodById } from "../content";
 import { eta, type WalkAction, type WalkState } from "../flow";
 
-const MASCOT_SIZE = 128;
 const SHARE_ICON_SIZE = 28;
 const TOAST_VISIBLE_MS = 2400;
 // WalkState にまだ歩いた日がないので、見本の日付を置いている。
@@ -20,7 +19,7 @@ type MemoryScreenProps = {
   onOpenFeed?: () => void;
 };
 
-/** 歩き終えたあとの画面。マスコットが手を上げて、思い出カードを見せる。 */
+/** 歩き終えたあとの画面。思い出カードを見せる。 */
 export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps): React.ReactElement => {
   const [copied, setCopied] = useState(false);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -36,10 +35,9 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
   return (
     <div className="flex flex-col gap-5 p-5">
       <div className="flex items-center gap-3 pt-2">
-        <Mascot mood={MascotMood.Cheer} size={MASCOT_SIZE} className="shrink-0 rotate-(--tilt-mascot)" />
-        <SpeechBubble tail={BubbleTail.Left}>
+        <p className="font-note text-sm text-fg-subtle">
           おつかれさま、いい寄り道だったね
-        </SpeechBubble>
+        </p>
       </div>
 
       <ScreenHeading className="font-hand text-2xl text-ink">今日の思い出カード</ScreenHeading>

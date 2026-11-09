@@ -8,15 +8,14 @@ type MoodPickerProps = {
   onChange: (mood: MoodId) => void;
 };
 
-const MOOD_TILTS: readonly number[] = [-1.2, 1, -0.6];
 const CHECK_SIZE = 28;
 
-/** 今の気分を 3 枚の傾いたカードから 1 つ選ぶ。 */
+/** 今の気分を 3 つの選択肢から 1 つ選ぶ。 */
 export const MoodPicker = ({ value, onChange }: MoodPickerProps): React.ReactElement => (
   <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
     <legend className="float-left w-full p-0 pb-2 font-hand text-sm text-ink">今の気分</legend>
     <div className="flex flex-col gap-3">
-      {MOODS.map((mood, i) => {
+      {MOODS.map((mood) => {
         const checked = mood.id === value;
         return (
           <ChoiceChip
@@ -25,8 +24,6 @@ export const MoodPicker = ({ value, onChange }: MoodPickerProps): React.ReactEle
             value={mood.id}
             checked={checked}
             onSelect={() => onChange(mood.id)}
-            tone={mood.tone}
-            tilt={MOOD_TILTS[i % MOOD_TILTS.length]}
             className="flex items-center gap-3 px-4 py-3 text-left"
           >
             <span className="flex flex-1 flex-col gap-0.5">
@@ -35,9 +32,9 @@ export const MoodPicker = ({ value, onChange }: MoodPickerProps): React.ReactEle
             </span>
             <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center">
               {checked ? (
-                <IconSticker name={IconName.Check} tone={mood.tone} size={CHECK_SIZE} className="animate-pop-in" />
+                <IconSticker name={IconName.Check} bg="bg-sticker" size={CHECK_SIZE} className="animate-pop-in" />
               ) : (
-                <span className="size-6 rounded-full border-2 border-dashed border-border-subtle" />
+                <span className="size-6 rounded-full border border-dashed border-border-subtle" />
               )}
             </span>
           </ChoiceChip>

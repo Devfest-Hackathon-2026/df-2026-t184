@@ -1,4 +1,4 @@
-import { cx, IconName, IconSticker, StickerCard, Tilt, Tone } from "@/components/sticker";
+import { cx, IconName, IconSticker, StickerCard, Tone } from "@/components/sticker";
 
 import { LOADING_STAGES } from "../flow";
 
@@ -29,14 +29,14 @@ const statusOf = (index: number, stage: number): StageStatus => {
 
 const StageMark = ({ status, order }: { status: StageStatus; order: number }): React.ReactElement => {
   if (status === StageStatus.Done) {
-    return <IconSticker name={IconName.Check} tone={Tone.Mint} size={CHECK_SIZE} className="rotate-(--tilt-stamp) animate-pop-in" />;
+    return <IconSticker name={IconName.Check} tone={Tone.Mint} size={CHECK_SIZE} className=" animate-pop-in" />;
   }
   return (
     <span
       aria-hidden="true"
       className={cx(
-        "grid size-8 shrink-0 place-items-center rounded-full border-2 font-hand text-sm",
-        status === StageStatus.Current ? "border-ink bg-lemon-deep text-ink" : "border-dashed border-ink-soft text-ink-soft",
+        "grid size-8 shrink-0 place-items-center rounded-full border font-hand text-sm",
+        status === StageStatus.Current ? "border-line bg-lemon-deep text-ink" : "border-dashed border-line text-ink-soft",
       )}
     >
       {order}
@@ -48,7 +48,7 @@ const StageMark = ({ status, order }: { status: StageStatus; order: number }): R
 export const LoadingStages = ({ stage }: LoadingStagesProps): React.ReactElement => {
   const current = LOADING_STAGES[stage];
   return (
-    <StickerCard tilt={Tilt.Right} className="w-full">
+    <StickerCard className="w-full">
       <ol className="flex flex-col gap-2">
         {LOADING_STAGES.map((item, i) => {
           const status = statusOf(i, stage);

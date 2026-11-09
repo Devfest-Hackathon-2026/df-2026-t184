@@ -13,6 +13,8 @@ export enum IconName {
 type IconStickerProps = {
   name: IconName;
   tone?: Tone;
+  /** tone の代わりに面の色クラスを直接渡す（例: bg-sticker・bg-accent）。tone と同時には使わない。 */
+  bg?: string;
   size?: number;
   className?: string;
 };
@@ -52,14 +54,14 @@ const ICON_PATHS: Record<IconName, React.ReactElement> = {
   ),
 };
 
-/** 白い円で縁取ったアイコンのステッカー。線は焦げ茶で 2px。 */
-export const IconSticker = ({ name, tone = Tone.Sky, size = DEFAULT_ICON_SIZE, className }: IconStickerProps): React.ReactElement => (
+/** 淡い円の上に線のアイコンを置いたもの。tone も bg もなければ薄いグレーの円。 */
+export const IconSticker = ({ name, tone, bg, size = DEFAULT_ICON_SIZE, className }: IconStickerProps): React.ReactElement => (
   <span
     aria-hidden="true"
     style={{ width: size, height: size }}
-    className={cx("inline-grid shrink-0 place-items-center rounded-full border-2 border-ink shadow-sticker-sm outline-3 outline-sticker", TONE_FILL[tone], className)}
+    className={cx("inline-grid shrink-0 place-items-center rounded-full", tone ? TONE_FILL[tone] : (bg ?? "bg-kraft"), className)}
   >
-    <svg viewBox="0 0 32 32" width={size * 0.66} height={size * 0.66} fill="none" stroke="var(--color-ink)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 32 32" width={size * 0.66} height={size * 0.66} fill="none" stroke="var(--color-ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       {ICON_PATHS[name]}
     </svg>
   </span>

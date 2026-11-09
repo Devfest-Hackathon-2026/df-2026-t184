@@ -1,7 +1,8 @@
 # 寄り道コンパス デザインシステム
 
-ステッカー風デザイン（`docs/design/sticker.md`）を、保守しやすい設計に整理したもの。
-構成の考え方は SmartHR のデザインシステムを参考に、このアプリの世界観（紙・シール・手書き）に翻訳している。
+見た目のルールは `docs/design/style.md`（白い地・細い線・アクセント 1 色のシンプルな表現）。
+構成の考え方は SmartHR のデザインシステムを参考にしている。
+部品のディレクトリ名 `sticker/` と `Sticker*` という部品名は、以前のステッカー風デザインの名残で、見た目とは関係しない。
 
 - トークンの実体: `src/app/globals.css` の `@theme`
 - 部品: `src/components/sticker/`（`index.ts` からまとめて import）
@@ -13,8 +14,9 @@ SmartHR の「プリミティブ → セマンティック」の考え方を採�
 
 ### プリミティブトークン（生の値）
 
-`@theme` 前半。焦げ茶・紙・クラフト・パステル 6 色（淡い=面 / 濃い=印・線）と、
-コントラストを担保する最深段（`-ink`）を置く。**コンポーネントからは直接使わない。**
+`@theme` 前半。文字のグレー 2 段、白い地、線のグレー、アクセントのティール 3 段、
+淡い 6 色（タグや小さな塗りに使う面と、その印の色）、コントラストを担保する最深段（`-ink`）を置く。
+**コンポーネントからは直接使わない。**
 
 ### セマンティックトークン（役割の名前）
 
@@ -24,29 +26,30 @@ SmartHR の「プリミティブ → セマンティック」の考え方を採�
 |---|---|---|
 | `--color-fg` | 本文 | `ink` |
 | `--color-fg-subtle` | 補助・ヒント文字 | `ink-soft` |
-| `--color-fg-on-deep` | 深い色の面の上の文字 | `sticker` |
-| `--color-canvas` | ページの地（クラフト紙） | `kraft` |
-| `--color-surface` | 方眼の紙 | `paper` |
-| `--color-surface-raised` | ステッカーの面 | `sticker` |
+| `--color-fg-on-deep` | アクセントなど濃い面の上の文字 | 白 |
+| `--color-canvas` | 画面の外側の地 | `kraft`（薄いグレー） |
+| `--color-surface` | 画面の地 | `paper`（白） |
+| `--color-surface-raised` | カード・ボタンの面 | `sticker`（白） |
 | `--color-surface-disabled` | 押せない面 | `paper-line` |
-| `--color-border` / `--color-border-subtle` | 縁取り / 補助線 | `ink` / `ink-soft` |
+| `--color-border` / `--color-border-subtle` | 縁取り / 補助線 | `line` |
 | `--color-focus` | フォーカスインジケータ | `sky-ink`（紙面と 5:1 超） |
 | `--color-danger` / `--color-danger-surface` | エラー・破壊操作 | `coral-ink` / `coral` |
-| `--color-overlay` / `--color-scrim` | 画面を薄く覆う層 | ink ベース 16% / 50% |
-| `--spacing-grid` | 方眼 1 マス = 22px（`gap-grid` 等） | — |
+| `--color-overlay` / `--color-scrim` | 画面を薄く覆う層 | ink ベース 8% / 45% |
+| `--spacing-grid` | 余白の基準 22px（`gap-grid` 等） | — |
 
 色を足すときはプリミティブに置き、必要なら意味を持つ参照をセマンティック側に足す。
-任意の HEX、透明度修飾子（`/70`）は使わない（`docs/design/sticker.md` のルール）。
+任意の HEX、透明度修飾子（`/70`）は使わない（`docs/design/style.md` のルール）。
 
 ## フォーカスと状態
 
 - `focus-ring` ユーティリティ: 白フチ（`surface-raised`）＋ `--color-focus` の輪郭。
-  smarthr-ui の `focusIndicatorStyles`（白いハロー＋輪郭）をステッカー表現に翻訳したもの。
+  smarthr-ui の `focusIndicatorStyles`（白いハロー＋輪郭）に倣ったもの。
   新しい操作部品は `focus-visible:focus-ring` を付ける。
 - 状態の約束（Button / フィールド / チップで共通）:
-  - hover: 影がひとつ上に浮く（`shadow-sticker-*` が大きくなる）
-  - active: 影がつぶれて沈む（`shadow-pressed`）＋ `animate-jelly`
-  - disabled: `surface-disabled` の面・`border-subtle` の線・`fg-subtle` の文字・影なし・`cursor-not-allowed`
+  - hover: 面の色が一段濃くなる（ボタンは `accent-strong`、白いボタン・チップは線や面が少し濃くなる）
+  - active: わずかに縮む（`scale-[0.98]`）
+  - checked（チップ・チェックボックス）: 縁と面がアクセント色になる
+  - disabled: `surface-disabled` の面・`fg-subtle` の文字・`cursor-not-allowed`
   - error（入力系）: `aria-invalid` で線が `danger` 色、エラー文は `fg` 相当の `danger` 文字
 - `prefers-reduced-motion` では全アニメーション停止（globals.css で一括）
 
@@ -56,7 +59,7 @@ SmartHR の「プリミティブ → セマンティック」の考え方を採�
 
 | 部品 | 用途 | アクセシビリティの要点 |
 |---|---|---|
-| `StickerButton` | 押せる操作。`variant`: `solid`（既定・tone で色）/ `plain` / `danger` | 実 `<button>`。`type` 既定は `button` |
+| `StickerButton` | 押せる操作。`variant`: `solid`（既定・アクセント色）/ `plain` / `danger` | 実 `<button>`。`type` 既定は `button` |
 | `TextField` / `TextAreaField` | 1行・複数行入力。`label` 必須、`hint`/`error`/`required` | `htmlFor` 関連付け、`aria-invalid`、ヒントとエラーを `aria-describedby` で接続、「必須」バッジ |
 | `ChoiceChip` | 1つ選ぶ選択肢。`name` をグループで共有する | 実 `<input type="radio">` を内包。Tab で選択肢へ、矢印キーで移動（ブラウザ標準） |
 | `StickerCheckbox` | オン/オフの項目 | 実 `<input type="checkbox">`。ラベル全体がクリック域 |
@@ -95,10 +98,10 @@ import { ButtonVariant, ChoiceChip, StickerButton, StickerCheckbox, TextField } 
 ## 部品・トークンを足すとき（コントリビューション）
 
 1. まず既存トークンで済むか確認する。足すならプリミティブに値を置き、役割の名前をセマンティックに作る
-2. 操作できる部品は: 実要素（button/input/a）を使い、見た目だけをシールに寄せる。`div` の `onClick` で作らない
+2. 操作できる部品は実要素（button/input/a）を使う。`div` の `onClick` で作らない
 3. `focus-visible:focus-ring`・disabled の3点（薄い色・影なし・`cursor-not-allowed`）を揃える
 4. Storybook に story を足し、`npm test` / `npx tsc --noEmit` / `npm run lint` を通す
-5. 装飾は `aria-hidden`、文字と操作部の上に重ねない（`docs/design/sticker.md`）
+5. 飾りのための要素（テープ・落書き・キャラクター）は足さない（`docs/design/style.md`）
 
 ## 参考にしたもの
 
@@ -109,4 +112,4 @@ import { ButtonVariant, ChoiceChip, StickerButton, StickerCheckbox, TextField } 
 - smarthr-ui リポジトリ（トークン実装・Checkbox の構成）: https://github.com/kufu/smarthr-ui （同上）
 
 借用しているのは**構成の考え方**（2層トークン・役割名・状態の揃え方・input を隠さず生かす実装）であり、
-ブランド・配色・コンポーネントの見た目は寄り道コンパスのステッカー表現に合わせて独自に作っている。
+配色・コンポーネントの見た目は `docs/design/style.md` のとおり独自に決めている。

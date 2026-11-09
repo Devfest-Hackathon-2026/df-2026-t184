@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-import { cx, TONE_FILL, Tone } from "./tokens";
+import { cx } from "./tokens";
 
 export enum ButtonSize {
   Md = "md",
@@ -8,34 +8,32 @@ export enum ButtonSize {
 }
 
 export enum ButtonVariant {
-  /** パステルの面で押せる主ボタン。色の意味は tone で渡す。 */
+  /** 画面で一番大事な操作。ピンクで塗り、文字は ink（白文字はコントラストが足りない）。 */
   Solid = "solid",
-  /** 白い紙の控えめなボタン。副操作・戻る系に使う。 */
+  /** 白地に細い線の控えめなボタン。副操作・戻る系に使う。 */
   Plain = "plain",
   /** 取り返しのつきにくい操作だけに使う危険色。 */
   Danger = "danger",
 }
 
 type StickerButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  tone?: Tone;
   size?: ButtonSize;
   variant?: ButtonVariant;
 };
 
 const SIZE_CLASS: Record<ButtonSize, string> = {
-  [ButtonSize.Md]: "min-h-12 px-5 text-base",
-  [ButtonSize.Lg]: "min-h-14 px-6 text-lg",
+  [ButtonSize.Md]: "min-h-11 px-4 text-sm",
+  [ButtonSize.Lg]: "min-h-13 px-6 text-base",
 };
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  [ButtonVariant.Solid]: "text-ink",
-  [ButtonVariant.Plain]: "bg-surface-raised text-ink",
+  [ButtonVariant.Solid]: "bg-accent text-ink hover:bg-accent-strong",
+  [ButtonVariant.Plain]: "bg-surface-raised text-ink shadow-sticker hover:bg-paper-line",
   [ButtonVariant.Danger]: "bg-danger text-fg-on-deep",
 };
 
-/** 焦げ茶の縁取りと、ぼかさない影のボタン。押すと影がつぶれて沈み、ぷるっと戻る。 */
+/** 丸いボタン。押すとわずかに縮む。 */
 export const StickerButton = ({
-  tone = Tone.Lemon,
   size = ButtonSize.Md,
   variant = ButtonVariant.Solid,
   className,
@@ -45,13 +43,11 @@ export const StickerButton = ({
   <button
     type={type}
     className={cx(
-      "sticker-edge inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--radius-sticker) font-hand",
-      "transition-[transform,box-shadow] duration-150 ease-out",
-      "hover:-translate-y-0.5 hover:shadow-sticker-lg active:translate-x-0.75 active:translate-y-0.75 active:shadow-pressed active:animate-jelly",
+      "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-hand",
+      "transition-[background-color,scale] duration-150 ease-out active:scale-[0.98]",
       "focus-visible:focus-ring",
-      "disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-surface-disabled disabled:text-fg-subtle disabled:shadow-none disabled:hover:translate-y-0",
+      "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-disabled disabled:text-fg-subtle",
       VARIANT_CLASS[variant],
-      variant === ButtonVariant.Solid && TONE_FILL[tone],
       SIZE_CLASS[size],
       className,
     )}

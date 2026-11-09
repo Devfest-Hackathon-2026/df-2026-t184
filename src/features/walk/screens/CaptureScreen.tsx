@@ -1,23 +1,9 @@
-import {
-  BubbleTail,
-  ButtonSize,
-  IconName,
-  IconSticker,
-  Mascot,
-  MascotMood,
-  ScreenHeading,
-  SpeechBubble,
-  StickerButton,
-  StickerCard,
-  TextAreaField,
-  Tilt,
-} from "@/components/sticker";
+import { ButtonSize, IconName, IconSticker, ScreenHeading, StickerButton, StickerCard, TextAreaField } from "@/components/sticker";
 
 import { PhotoSlot } from "../components/PhotoSlot";
 import { moodById } from "../content";
 import { CHECKPOINTS, type WalkAction, type WalkState } from "../flow";
 
-const MASCOT_SIZE = 112;
 const BACK_ICON_SIZE = 44;
 const MEMO_ID = "capture-memo";
 
@@ -49,12 +35,11 @@ export const CaptureScreen = ({ state, dispatch }: CaptureScreenProps): React.Re
 
       <div className="flex flex-col">
         <div className="relative z-0 -mb-3 flex items-end justify-end gap-3 pr-2">
-          <SpeechBubble tail={BubbleTail.Right} className="mb-8">
+          <p className="font-note text-sm text-fg-subtle">
             {taken ? "いい写真だね" : "パシャっと撮ってみて"}
-          </SpeechBubble>
-          <Mascot mood={taken ? MascotMood.Cheer : MascotMood.Idle} size={MASCOT_SIZE} className="shrink-0 rotate-(--tilt-mascot)" />
+          </p>
         </div>
-        <StickerCard tone={quest.tone} tilt={Tilt.Slight} className="z-10 flex flex-col gap-1 pt-6">
+        <StickerCard tone={quest.tone} className="z-10 flex flex-col gap-1 pt-6">
           <p className="font-hand text-xs text-ink-soft">クエスト</p>
           <p className="font-hand text-lg leading-snug text-ink">{quest.title}</p>
         </StickerCard>
