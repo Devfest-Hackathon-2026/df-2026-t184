@@ -77,6 +77,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
 
   useEffect(() => {
     let cancelled = false;
+    let ro: ResizeObserver | undefined;
     (async () => {
       try {
         await loadGoogleMaps();
@@ -103,6 +104,18 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
         onOrderRef.current?.(order);
         const path = [start, ...cps, goal];
         markers.current.path = path;
+
+        // 下のカードの高さに合わせて、地図の枠の下端を決める（カードの高さが変わっても追従）
+        const mapEl = el.current;
+        const card = mapEl.parentElement?.querySelector<HTMLElement>("[data-route-card]");
+        const fitToCard = () => {
+          mapEl.style.bottom = `${card?.offsetHeight ?? 360}px`;
+        };
+        fitToCard();
+        if (card) {
+          ro = new ResizeObserver(fitToCard);
+          ro.observe(card);
+        }
 
         const map = new Map(el.current, {
           mapId: "DEMO_MAP_ID",
@@ -136,7 +149,12 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
 
         const bounds = new google.maps.LatLngBounds();
         path.forEach((p) => bounds.extend(p));
-        map.fitBounds(bounds, { top: 110, right: 40, bottom: 380, left: 40 }); // 下のカードと上のチップを避ける
+        // 地図の枠そのものを「下のカードより上」だけにする。余白の計算に頼らず、見える範囲にぴったり収まる
+        map.fitBounds(bounds, { top: 100, right: 40, bottom: 40, left: 40 });
+        // 2点が近いと寄りすぎるので、拡大しすぎないようにする
+        google.maps.event.addListenerOnce(map, "idle", () => {
+          if ((map.getZoom() ?? 0) > 16) map.setZoom(16);
+        });
         paint(stepRef.current);
       } catch (e) {
         console.error(e);
@@ -145,6 +163,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
     })();
     return () => {
       cancelled = true;
+      ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dest, placesKey]);
@@ -159,5 +178,5 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
 
   useEffect(() => paint(step), [step]);
 
-  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 540 }} />;
+  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, right: 0 }} />;
 }
