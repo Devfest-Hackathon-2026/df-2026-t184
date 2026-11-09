@@ -4,6 +4,7 @@
 きれいに整った「ちゃんとしたアプリ」には寄せない。主役はマスコットのミチノコ。
 
 トークンの実体は `src/app/globals.css` の `@theme`、部品は `src/components/sticker/`。
+トークンの2層構造・フォーカス/状態の約束・部品の足し方は [docs/design/design-system.md](design-system.md) を参照。
 
 ## 文字
 
