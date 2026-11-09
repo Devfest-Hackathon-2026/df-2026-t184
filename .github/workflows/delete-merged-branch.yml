@@ -17,16 +17,20 @@ jobs:
       contents: write
       pull-requests: read
     steps:
-      # No checkout: never execute code from the PR with this write token.
+      # Checks run as workflow code only; the delete itself is a git push with
+      # --force-with-lease, which the server applies atomically (TOCTOU-safe).
       - uses: actions/github-script@v7
+        id: check
         with:
           script: |
             const pr = context.payload.pull_request;
             const { owner, repo } = context.repo;
             const branch = pr.head.ref;
             const repository = await github.rest.repos.get({ owner, repo });
+            const longLived = /^(main|master|develop|development|staging|stg|prod|production|gh-pages|trunk|releases?|hotfix)(\/|$)/i;
             if (!pr.merged || pr.head.repo?.full_name !== repository.data.full_name ||
-                branch === repository.data.default_branch || branch === pr.base.ref) {
+                branch === repository.data.default_branch || branch === pr.base.ref ||
+                longLived.test(branch)) {
               core.info('Not an eligible merged feature branch; skipped');
               return;
             }
@@ -38,20 +42,30 @@ jobs:
               core.info('Another open PR uses this branch; skipped');
               return;
             }
-            let current;
-            try {
-              current = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
-            } catch (error) {
-              if (error.status === 404) {
-                core.info('Branch already deleted');
-                return;
-              }
-              throw error;
-            }
-            if (current.data.object.sha !== pr.head.sha) {
-              core.info('Branch has new commits since the merge; skipped');
-              return;
-            }
-            // GitHub enforces protected-branch/ruleset restrictions. Never bypass them.
-            await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` });
-            core.info(`Deleted merged branch: ${branch}`);
+            // The lease expectation is the merged head itself: any push landing
+            // between the merge and the delete makes the server reject it, so
+            // a getRef -> deleteRef race can no longer drop commits. Note the
+            // remaining accepted race: a new PR opened on this branch after
+            // our open-PR check cannot be made atomic with the deletion.
+            core.setOutput('branch', branch);
+            core.setOutput('expected', pr.head.sha);
+            core.info(`Deleting ${branch} at ${pr.head.sha} with lease`);
+
+      # The script comes from the default branch only; PR code never runs
+      # against this write token.
+      - name: Checkout trusted delete script
+        if: steps.check.outputs.branch != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Delete branch via atomic lease
+        if: steps.check.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.check.outputs.branch }}
+          EXPECTED_SHA: ${{ steps.check.outputs.expected }}
+          REMOTE_URL: https://github.com/${{ github.repository }}.git
+        run: bash scripts/delete-merged-branch.sh
