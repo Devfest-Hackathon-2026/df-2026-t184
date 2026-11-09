@@ -7,7 +7,14 @@ if [ "${1:-}" != "--apply" ]; then
   echo 'Review this script, then run: bash scripts/bootstrap-github-deploy.sh --apply'
   exit 0
 fi
-gcloud() { command gcloud --quiet --account=yamadamei0512@gmail.com --billing-project=df-2026-t184-prod "$@"; }
+# 操作アカウントは明示固定（既定は既存の正しい Mei アカウント）。
+# ambient な gcloud デフォルト（社用アカウント等）には一切依存しない。
+# 別アカウントで実行する場合のみ BOOTSTRAP_GCLOUD_ACCOUNT で上書きする。
+GCLOUD_ACCOUNT="${BOOTSTRAP_GCLOUD_ACCOUNT:-yamadamei0512@gmail.com}"
+gcloud() { command gcloud --quiet --account="${GCLOUD_ACCOUNT}" --billing-project=df-2026-t184-prod "$@"; }
+
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bootstrap-github-deploy.XXXXXX")
+trap 'rm -rf "${TMP_DIR}"' EXIT
 
 PROJECT_ID="df-2026-t184-prod"
 PROJECT_NUMBER="1031159186960"
@@ -87,7 +94,7 @@ done
 
 log "source upload bucket"
 if ! gcloud storage buckets describe "gs://${SOURCE_BUCKET}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
-  lifecycle_json=$(mktemp /tmp/apphosting-lifecycle.XXXXXX.json)
+  lifecycle_json="${TMP_DIR}/apphosting-lifecycle.json"
   cat > "${lifecycle_json}" <<'JSON'
 { "rule": [ { "action": { "type": "Delete" }, "condition": { "age": 30 } } ] }
 JSON
@@ -96,7 +103,6 @@ JSON
     --location "${REGION}" \
     --uniform-bucket-level-access \
     --lifecycle-file "${lifecycle_json}"
-  rm -f "${lifecycle_json}"
 fi
 gcloud storage buckets update "gs://${SOURCE_BUCKET}" \
   --update-labels "apphosting-source-${REGION}=true"
