@@ -258,7 +258,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
     # 全PR共通のgroupだと後続の報告がpending置換で消える。run単位にして、
     # 同じrun再実行の重複投稿はスクリプト側のbot+marker+run URL照合で防ぐ。
     concurrency:

@@ -220,7 +220,7 @@ Firestore `yorimichi-stg`（`df-2026-t184-prod`）へのコンソールリンク
 古いコメントは編集・削除せず履歴として残る。
 
 - report ジョブは deploy ジョブの成功を前提に別ジョブとして動き、
-  `issues: write` + `pull-requests: read` だけを持つ（`id-token` なし、GCP 権限なし）。
+  `issues: write` + `pull-requests: write` だけを持つ（`id-token` なし、GCP 権限なし）。
 - main 由来のスクリプト（`scripts/report-stg-deploy.py`）だけを実行し、
   PR ソースや成果物は一切使わない。
 - 追記型であり、**PR 本文・他者のコメントは一切変更しない**（PATCHしない）。
