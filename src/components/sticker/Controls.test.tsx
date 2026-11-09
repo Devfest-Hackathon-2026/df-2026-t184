@@ -45,6 +45,19 @@ describe("TextField", () => {
     expect(screen.getByLabelText(/行き先/)).toBeRequired();
   });
 
+  it("disabled は薄い面・細い線・影なし・カーソル禁止になる", () => {
+    render(<TextField id="fd" label="行き先" disabled />);
+    const input = screen.getByLabelText("行き先");
+    expect(input).toBeDisabled();
+    expect(input).toHaveClass(
+      "disabled:cursor-not-allowed",
+      "disabled:border-border-subtle",
+      "disabled:bg-surface-disabled",
+      "disabled:text-fg-subtle",
+      "disabled:shadow-none",
+    );
+  });
+
   it("hint と error が両方あるとき aria-describedby に両方並ぶ", () => {
     render(<TextField id="f3" label="メモ" hint="30字まで" error="長すぎます" />);
     const describedby = screen.getByLabelText("メモ").getAttribute("aria-describedby") ?? "";

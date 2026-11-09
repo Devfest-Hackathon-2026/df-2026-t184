@@ -33,6 +33,17 @@ export const TONE_DEEP_FILL: Record<Tone, string> = {
   [Tone.Lilac]: "bg-lilac-deep",
 };
 
+// ChoiceChip で選ばれた面の色。見た目は props ではなく実 input の状態に合わせるため、
+// peer-checked: 込みの完全なクラス名で書き出す（Tailwind が静的に拾える形）。
+export const TONE_CHECKED_FILL: Record<Tone, string> = {
+  [Tone.Pink]: "peer-checked:bg-pink",
+  [Tone.Mint]: "peer-checked:bg-mint",
+  [Tone.Sky]: "peer-checked:bg-sky",
+  [Tone.Lemon]: "peer-checked:bg-lemon",
+  [Tone.Coral]: "peer-checked:bg-coral",
+  [Tone.Lilac]: "peer-checked:bg-lilac",
+};
+
 export const TONE_DEEP_TEXT: Record<Tone, string> = {
   [Tone.Pink]: "text-pink-deep",
   [Tone.Mint]: "text-mint-deep",
