@@ -29,6 +29,7 @@ jobs:
       cancel-in-progress: false
     outputs:
       deployed: ${{ steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true' }}
+      sha: ${{ steps.candidate.outputs.sha }}
       uri: ${{ steps.backend.outputs.uri }}
     env:
       GCP_PROJECT_ID: df-2026-t184-prod
@@ -160,6 +161,86 @@ jobs:
             2*|3*) echo "https://${BACKEND_URI} -> HTTP ${code}";;
             *) echo "::error::https://${BACKEND_URI} returned HTTP ${code}"; exit 1;;
           esac
+
+  # PRのChecks欄に「Deploy / stg」のcommit statusを出す。pendingはdeploy
+  # ジョブと同じ起動条件で即座に投稿し、finalはdeploy終了後に結果を上書きする。
+  # statuses: write はこの2ジョブだけに絞り、OIDC権限とは分離する
+  # (スクリプトは trusted=main 由来のみで、PRコード・成果物は使わない)。
+  status-pending:
+    name: Publish Deploy / stg (pending)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_repository.fork == false &&
+      vars.DEPLOY_STG_PAUSED != 'true'
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      statuses: write
+    env:
+      STATUS_MODE: pending
+      DEPLOY_ENV: stg
+      DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Post pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 trusted/scripts/report-deploy-status.py
+
+  status:
+    name: Publish Deploy / stg result
+    # pendingが遅れて最終結果を上書きしない順序を保証する。
+    needs: [deploy, status-pending]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # 失敗・キャンセル・スキップ時も結果を残すため always()。fork・
+    # 別リポジトリ由来のイベントにはstatusを書かない (script側でも再検査)。
+    if: >-
+      always() &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_repository.fork == false
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      statuses: write
+    concurrency:
+      group: apphosting-status-stg-${{ github.run_id }}
+      cancel-in-progress: false
+    env:
+      STATUS_MODE: final
+      DEPLOY_ENV: stg
+      DEPLOY_RESULT: ${{ needs.deploy.result }}
+      DEPLOYED: ${{ needs.deploy.outputs.deployed }}
+      DEPLOY_SHA: ${{ needs.deploy.outputs.sha }}
+      DEPLOY_PAUSED: ${{ vars.DEPLOY_STG_PAUSED }}
+      DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Post final status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 trusted/scripts/report-deploy-status.py
 
   report:
     name: Record stg deploy in PR comment
