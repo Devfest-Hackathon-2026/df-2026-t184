@@ -166,7 +166,7 @@ PRの作成・更新ではCI成功後に共有stgへ、mainへのマージ（pus
 | 対象 | 条件 | バックエンド |
 | --- | --- | --- |
 | stg | 同一リポジトリ・main向け・openのPR。最新headのCI成功 | yorimichi-stg |
-| prod | 最新mainのpush CI成功 | yorimichi-prod |
+| prod | 現在のmain head、そのpush CIの最新attemptが成功 | yorimichi-prod |
 
 `workflow_run`でmainのワークフローを実行する。同名の別CIを拾わないようパスも確認する。
 fork・閉じたPR・古いSHA・`.github/`を変更するPRはstgへ自動デプロイしない。
@@ -174,26 +174,40 @@ fork・閉じたPR・古いSHA・`.github/`を変更するPRはstgへ自動デ�
 
 stgはPRごとのプレビューではなく共用。最後にデプロイされた内容が表示される。
 両環境とも同時に1ジョブだけ実行し、実行中のジョブを新しいジョブでキャンセルしない。
-GitHub concurrencyはFIFOを保証せず、待機中のジョブが置き換わる場合もあるため、
-待機終了後にもPR/mainの最新SHAを照合する。mainの古いCI再実行で巻き戻さない。
 
-### stg デプロイ結果の PR 本文への記録
+prodの選定は**トリガーとなったイベントのSHAではなく、ロック取得後に再解決する**
+（`scripts/check-deploy-candidate.py`）。GitHub concurrencyはFIFOを保証せず、
+`cancel-in-progress: false` でも古いCI再実行が最新main用のpending jobを
+置き換え得る。そこでジョブは開始時に現在のmain headと、そのSHAに対する
+正規のpush CI runの**最新attempt**をAPIで読み直し、成功しているときだけ
+そのSHAをデプロイする。古いイベントが発火した場合でもデプロイされるのは
+常に現在のmainであり、最新mainのCIが未成功なら何もデプロイしない
+（古い成功SHAへのフォールバックはしない）。ロールアウト待機の直前にも
+再解決し、選定SHAが変わっていればskipする（新しいmainはそれ自身の
+workflow_runが別ジョブで処理する）。sourceのcheckoutはこの選定SHAに一致させる。
 
-デプロイと smoke check が成功すると、`report` ジョブが対象 PR の**本文**に
-`<!-- STG_DEPLOY_STATUS -->` で囲まれたブロックを書き込む。内容は
-stg URL、デプロイ SHA、ワークフロー実行リンク、記録日時、
-Firestore `yorimichi-stg`（`df-2026-t184-prod`）へのコンソールリンクと
-「共有 stg/DB は PR 専用ではなく他 PR で上書きされ得る」注記のみで、
-認証情報や API キーは含まない。
+### stg デプロイ結果の PR コメントへの記録
+
+デプロイと smoke check が成功すると、`report` ジョブが対象 PR へ
+`<!-- STG_DEPLOY_STATUS -->` マーカー付きの**専用コメントを1件投稿**する。
+内容は stg URL、デプロイ SHA、ワークフロー実行リンク、記録日時、
+Firestore `yorimichi-stg`（`df-2026-t184-prod`）へのコンソールリンク、
+「共有 stg/DB は PR 専用ではなく他 PR で上書きされ得る」注記と
+「このコメントは投稿時点の履歴」の注記のみで、認証情報や API キーは含まない。
+古いコメントは編集・削除せず履歴として残る。
 
 - report ジョブは deploy ジョブの成功を前提に別ジョブとして動き、
-  `pull-requests: write` だけを持つ（`id-token` なし、GCP 権限なし）。
+  `issues: write` + `pull-requests: read` だけを持つ（`id-token` なし、GCP 権限なし）。
 - main 由来のスクリプト（`scripts/report-stg-deploy.py`）だけを実行し、
   PR ソースや成果物は一切使わない。
-- PR が open・main 向け・同一リポジトリ・head SHA 不変でない場合は何も書かない。
-  PATCH 直前に本文を再取得し、マーカー外は一切変更しない。
-  ブロックは冪等（内容が同じなら PATCH しない）。マーカーが壊れている
-  （片方だけ・逆順・複数）場合は fail closed で更新を拒否する。
+- 追記型であり、**PR 本文・他者のコメントは一切変更しない**（PATCHしない）。
+  人の編集との競合は起きない。
+- 同じワークフロー実行の再投稿防止は、全コメントをページングして
+  `github-actions[bot]` 作者＋マーカー＋run URL が一致するコメントを探して
+  行う。bot以外が書いたマーカーは重複証拠として採用しない。
+- report の concurrency group は run 単位（`github.run_id`）。
+  全PR共通のgroupだと、待機中の別PRの報告がpending置換で消えるため。
+- PR が open・main 向け・同一リポジトリ・head SHA 不変でない場合は投稿しない。
 - Firebase **Hosting** には PR ごとの自動プレビューコメントがあるが、
   これは App Hosting 用に GitHub Actions で実装した独自の仕組み。
   Hosting 版はサイト単位の一時プレビューであり、本リポジトリの
@@ -209,6 +223,9 @@ Firestore `yorimichi-stg`（`df-2026-t184-prod`）へのコンソールリンク
 - PRソースは`source/`、main由来のデプロイスクリプトは`trusted/`へ別々にcheckoutする。
   checkout認証は永続化しない。OIDCファイルはworkspace直下に置かれ、アップロード対象の
   `source/`の外にある。`credentials_file_path`という非対応inputは使わない。
+- バックエンドの `environment` に加えて `serviceAccount` が
+  `yorimichi-<env>@df-2026-t184-prod.iam.gserviceaccount.com` と一致することを
+  デプロイ前にAPIで確認する。一致しなければ失敗させる。
 - PR内のfirebase.jsonは使わず、固定のbackend/rootDir/ignoreを持つ設定を生成する。
   App Hosting YAMLもmainからコピーする。PRのhooks・localBuild・本番secret指定を取り込まない。
   シンボリックリンクを含むソースは拒否する。PR内のコードはGitHubの認証済みrunnerで実行せず、
@@ -239,25 +256,87 @@ CLI既定compute SAの4ロールはfirebase-toolsのprovision処理に合わせ�
 [App Hostingのソースデプロイ](https://firebase.google.com/docs/app-hosting/alt-deploy)。
 
 初回bootstrapは`DEPLOY_STG_PAUSED` / `DEPLOY_PROD_PAUSED`を`true`で作る。
-再実行時には既存値を維持する。レビュー・接続確認後、各値を`false`にして有効化する。
-この停止スイッチは新しいデプロイだけを止める。稼働中サービスや課金は止まらない。
+再実行時には既存値を維持する。この停止スイッチは新しいデプロイだけを止める。
+稼働中サービスや課金は止まらない。
+
+#### 初回有効化の手順（現状）
+
+GitHub variables は `DEPLOY_STG_PAUSED=true` / `DEPLOY_PROD_PAUSED=true` が
+設定・readback済み。**このPRをmainにマージしてもデプロイは自動実行されない**
+（workflowのjob条件がpause変数を見る）。有効化は以下の順で、各段階の確認を
+済ませてから人間が変数を`false`にする。エージェントがpauseを自動解除しない。
+
+1. 権限検証: deploy SAの条件付きロール（builds.create/rollouts.create）が
+   意図どおり評価されるかを確認する。**失敗しても無条件の権限へ自動で
+   切り替えない**（権限拡大fallbackは行わない）。
+2. `DEPLOY_STG_PAUSED`のみ`false`にする。
+3. アプリ変更のPRを立てて、stgでOIDCトークン交換・ビルド・ロールアウト・
+   smoke check・PRコメント投稿が実際に成功することを確認する。
+   ここまで確認できた時点が「stgの実機検証済み」。
+4. `DEPLOY_PROD_PAUSED`を`false`にする。
+5. mainへのpush CI成功（必要なら既存の成功runを再実行）でprodへの
+   デプロイが走ることを確認する。prodの無条件自動有効化はしない。
+
+CIのpassは実機検証ではない。OIDC交換・builds/rollouts作成・rollout成功は
+実際にstgへデプロイして初めて確認できる。
+
+##### 確認済み・未確認のリスク（受容済みとは書かない）
+
+- deploy SAのバックエンド名条件付き`builds.create`/`rollouts.create`は、
+  条件が実APIで意図どおり評価されるか**未実測**。初回デプロイで検証する。
+- `apphosting.<env>.yaml`の`availability: [BUILD, RUNTIME]`シークレットを
+  ビルド側で誰が解決するか（compute SA/サービスエージェント/他）は**未実測**。
+- 共有compute SA（`firebase-app-hosting-compute`）で動くビルドは、
+  同一リポジトリのwriterがマージした任意のコードをその権限で実行する。
+- stg/prodは同一GCPプロジェクト・同一Auth（ユーザー共有）。完全な隔離ではない。
+- workflowがsource checkoutしたコードをApp Hostingへ送るため、
+  同一リポジトリのPRコードが共有stgで動く。`.github/`変更PRは除外済みだが、
+  アプリコードの意図しない挙動まで防ぐものではない。
 
 ### 検証と運用上の制限
 
 `python3 scripts/test-deploy.py`で古いSHA・閉じたPR・fork・workflow変更・
-不正なデプロイ設定・シンボリックリンクの拒否を検証する。
-ワークフローは既存ロールアウト完了待ち、CLI実行、作成日時と成功状態の確認、HTTP確認を行う。
-外部から同時に手動デプロイしないこと。ジョブを手動キャンセルしてもクラウド側の処理は残る。
+不正なデプロイ設定・シンボリックリンクの拒否、prodの再解決（最新attempt失敗・
+実行中の不採用、古い成功SHAへの非フォールバック、APIページング越しの選定）、
+ロールアウト一覧のページング・PAUSED中断・時刻+ラベル相関、
+レポートの専用コメント投稿（bot作者照合・重複抑止・非適格不投稿）を検証する。
+`bash scripts/test-branch-delete.sh`はローカルbareリポジトリで
+`--force-with-lease`削除が競合pushを失わないことを実証し、CIで実行する。
+
+ロールアウト関連は `scripts/apphosting-rollouts.py` に集約し、listは
+`nextPageToken`を全ページ辿る（先頭10/20件だけを見ない）。
+
+- `wait`: QUEUED/PENDING_BUILD/PROGRESSING が無くなるまで待つ。
+  **PAUSEDがあれば名前付きで即失敗**する。黙って待ち続けると、
+  誰かがクラウド側で再開したrolloutとデプロイが競合し得るため。
+- `verify`: このジョブの時間窓（JOB_START以降・誤差60秒）に作成され、
+  `deployment-tool`ラベルが`cli-firebase`で始まる最新rolloutが
+  SUCCEEDEDであることを確認する。firebase-tools 15.35.0のCLIは
+  rollout/operation IDを標準出力に出さないため、相関は「時刻窓＋
+  CLI作成ラベル」までであり、同時刻に他のCLIデプロイがあった場合まで
+  完全には区別できない（完全相関とは呼ばない）。
+- 外部から同時に手動デプロイしないこと。ジョブを手動キャンセルしても
+  クラウド側の処理は残る。
 
 OIDCの実トークン交換とビルド・公開はmainへの取り込み後に検証する。
-ロールバックはmainにrevertを入れてCIを通す。古いCIの再実行は古いSHAとして拒否される。
+ロールバックはmainにrevertを入れてCIを通す。prodは古いCI再実行が
+トリガーでも常に現在のmainを再解決するため巻き戻しは起きない。
 クレジット終了時の自動停止は未設定。PR更新のたびにビルド費用が発生し得る。
 
 ### マージ後のリモートブランチ削除
 
 `delete-merged-branch.yml`はマージされた同一リポジトリのPRを対象に、作業ブランチを削除する。
-main・マージ先・他のopen PRで使われているブランチ・マージ後に新コミットが付いたブランチは削除しない。
-PRコードはcheckoutせず、GitHubの保護ルールも回避しない。ローカルブランチは残る。
-ref確認と削除はGitHub API上で原子的ではないため、マージ直後に同じブランチを再利用しないこと。
+main・マージ先・他のopen PRで使われているブランチ・長命ブランチ名
+（main/master/develop/development/staging/stg/prod/production/gh-pages/trunk/release系/hotfix系）は削除しない。
+削除は`git push --force-with-lease=<ref>:<マージhead SHA>`で行い、
+**サーバー側で原子的に適用される**（getRef→deleteRefのTOCTOUを解消）。
+マージ後にブランチへ新しいpushがあればleaseが拒否され、そのコミットは残る。
+資格情報はGIT_ASKPASS経由の環境変数のみで渡し、URL・argv・ログに載せない。
+mainのみcheckoutしてPRコードは実行せず、GitHubの保護ルールも回避しない。
+ローカルブランチは残る。
+
+残る競合（原子的にできないものとして記録）: open PRの確認と削除の間に
+**新しいPRが同じブランチで開かれた**場合は検知できない。運用回避として、
+マージ済みブランチを別PRで再利用しないこと。
 既存のマージ済みブランチは一括削除しない。ワークフローがmainへ入った後のマージから適用する。
 リポジトリ標準の自動削除設定は管理者権限がないため未変更。
