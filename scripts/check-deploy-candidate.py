@@ -59,7 +59,7 @@ def select_prod_sha(api_fn, repo):
                and r['head_repository']['full_name'] == repo]
     if not trusted:
         return None
-    latest = max(trusted, key=lambda r: (r.get('run_attempt', 1), r['id']))
+    latest = max(trusted, key=lambda r: r['id'])
     if latest_ci_attempt(api_fn, repo, latest['id'],
                          latest.get('run_attempt', 1)) != 'success':
         return None

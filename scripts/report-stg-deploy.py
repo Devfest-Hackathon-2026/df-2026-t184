@@ -53,7 +53,7 @@ def already_reported(comments, run_url):
     for c in comments:
         body = c.get('body') or ''
         if (c.get('user', {}).get('login') == BOT_LOGIN
-                and MARK in body and run_url in body):
+                and MARK in body and re.search(r'(?<!\S)' + re.escape(run_url) + r'(?=\s|$)', body)):
             return True
     return False
 

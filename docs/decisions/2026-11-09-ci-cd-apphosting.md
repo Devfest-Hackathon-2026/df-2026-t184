@@ -39,7 +39,7 @@ main 由来スクリプトのみ）が PR 本文の `<!-- STG_DEPLOY_STATUS -->`
 ### 通知先の変更（ユーザー承認済み）
 
 ユーザーの回答（親エージェント経由、原文のまま転記）:
-『通知先を「専用のPRコメントに変更する」』
+「専用のPRコメントに変更する（推奨）」
 
 - 実装: `report-stg-deploy.py` は PR 本文 PATCH を廃止し、
   `issues/{pr}/comments` への追記型コメントに変更した。本文・他者コメントは
@@ -60,7 +60,7 @@ main 由来スクリプトのみ）が PR 本文の `<!-- STG_DEPLOY_STATUS -->`
 
 - ロック取得後に現在のmain headと、そのSHAの正規push CI runの**最新attempt**
   を読み直し、成功時のみそのSHAを選ぶ。古い成功SHAへのフォールバックはしない。
-- source checkout は選定SHAに一致させ、ロールアウト待機直前にも再解決する。
+- source checkout は選定SHAに一致させ、ロールアウト待機後・デプロイ直前にも再解決する。
   選定が変わればskip（新しいmainは自身のworkflow_runが処理する）。
 - 回帰テスト: 古いイベントがpendingを置換しても「現在のmain＋CI成功」が
   選ばれること、最新attempt失敗/実行中/キューを成功扱いしないこと、
@@ -86,35 +86,13 @@ main 由来スクリプトのみ）が PR 本文の `<!-- STG_DEPLOY_STATUS -->`
 - stg checkout順を trusted→candidate→source に変更し、不要な
   `fetch-depth: 0` を削除。`scripts/__pycache__` を `.gitignore` へ追加。
 
-### 技術選定の記録（D-XXX 転記用ドラフト）
+### 技術選定の記録
 
-`docs/DECISIONS.md` はmainにのみ存在し（merge-baseには無い）、このブランチで
-同パスを追加するとマージ時に add/add 競合になるため、**ブランチ内では作成しない**。
-マージ後にPMがmain側へ次番（現状 D-005 相当）として転記する想定の内容を残す。
-
-- テーマ: GitHub Actions から App Hosting への認証とデプロイ方式
-- 候補:
-
-| 案 | メリット | デメリット |
-| --- | --- | --- |
-| A. OIDC/WIF（採用） | SA鍵の配布・ローテーション不要。providerのattribute-conditionでrepo/owner ID・event・ref・workflow_refを固定できる | 設定が複雑。workflow_runに限定されるためworkflow改修が絡むと条件見直しが必要 |
-| B. SA鍵をGitHub Secretsに保管 | 実装が単純 | 長期鍵の漏洩リスク・ローテーション運用が発生。鍵をリポジトリ外へ出す |
-
-| 案 | メリット | デメリット |
-| --- | --- | --- |
-| A. Actions CLI デプロイ（採用） | 既存CIの成功をworkflow_runで受けて同じパイプラインで処理できる。共有stgへのPR連動・選定ロジックをコードで制御できる | 権限・選定・待機の実装を自分で持つ |
-| B. Developer Connect + App Hosting自動ロールアウト | GitHub接続・ブランチ連動デプロイがマネージド | PR連動の共有stgデプロイや「CI成功時のみ」の条件を外側で別途組む必要がある。既存CIとの連携が弱い |
-
-- 決定と理由: OIDC + Actions CLI。鍵を作らない方針と、PR連動の共有stgという
-  要件に既存CIを直接組み合わせられる点が理由。ユーザー本人の選定理由の
-  発言は未記録（実装上の選択はAIによる設計）。
-- 捨てた案を選ばなかった理由: SA鍵はローテーション運用と漏洩面が残る。
-  Developer Connect は共有stgへのPR連動・既存CIゲートの条件を外で組む
-  必要があり、今回の要件に合わない。
+最新mainを取り込み、`docs/DECISIONS.md` の D-005 に比較・実装根拠を記録した。
 
 ### 検証
 
-- `python3 scripts/test-deploy.py`: 23テスト全通過（prod再解決・ページング・
+- `python3 scripts/test-deploy.py`: 25テスト全通過（prod再解決・ページング・
   ロールアウト相関・レポート投稿のmock回帰を含む）。
 - `bash scripts/test-branch-delete.sh`: ローカルbareリポジトリで
   stale lease が拒否され競合pushが残ることを実証。
@@ -124,7 +102,17 @@ main 由来スクリプトのみ）が PR 本文の `<!-- STG_DEPLOY_STATUS -->`
 
 ### 残課題
 
-- `docs/DECISIONS.md` への D-XXX 転記（main側、PM対応）。
 - 初回有効化手順の各段階（権限検証→stg解除→実機確認→prod解除→mainCI rerun）。
 - 条件付きIAM（builds.create/rollouts.create）・BUILD時シークレット解決主体は未実測。
 - reportコメントの投稿経路はmock検証済み。実際のPOSTは初回stgデプロイ時に確認。
+
+### 親による最終確認（2026-11-09）
+
+- 目的・スコープの再利用元: ユーザー「上記で内容いいので実際に上記のreviewへの追加対応してもらっていいでしょうか？」。
+- 質問: PR本文の同時編集を保護するため、通知先を専用PRコメントへ変更してよいか。
+- 回答: 「専用のPRコメントに変更する（推奨）」。質問手段: request_user_input_async（選択式、1ラウンド）。本人の追加の理由: 未回答。
+- 古いrunのattempt数より新しいrun IDを優先すること、URLの前方一致で別runの通知を抑止しないことをRed→Greenで追加検証。
+- prod jobへActions読み取り権限を追加。page tokenをURLエンコード。
+- PR: https://github.com/shun-os/df-2026-t184/pull/16 。会話リンク: 未取得。
+
+- 親でnpm test 26件、lint、build成功。Policy TroubleshooterはUNKNOWN_CONDITIONALであり実権限未確認。backend/Secret IAMの読み取り検証結果は環境手順に記録。

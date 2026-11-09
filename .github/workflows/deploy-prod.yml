@@ -22,6 +22,7 @@ jobs:
       vars.DEPLOY_PROD_PAUSED != 'true'
     permissions:
       contents: read
+      actions: read # 現在mainのCI run / attemptを読み取る
       pull-requests: read
       id-token: write # OIDC (Workload Identity Federation) 用
     concurrency:

@@ -286,8 +286,10 @@ CIのpassは実機検証ではない。OIDC交換・builds/rollouts作成・roll
   条件が実APIで意図どおり評価されるか**未実測**。初回デプロイで検証する。
 - `apphosting.<env>.yaml`の`availability: [BUILD, RUNTIME]`シークレットを
   ビルド側で誰が解決するか（compute SA/サービスエージェント/他）は**未実測**。
-- 共有compute SA（`firebase-app-hosting-compute`）で動くビルドは、
-  同一リポジトリのwriterがマージした任意のコードをその権限で実行する。
+- [公式Backend API仕様](https://firebase.google.com/docs/reference/apphosting/rest/v1beta/projects.locations.backends)では `serviceAccount` はCloud BuildとCloud Runの両方に使われる。
+  2026-11-09のGETで、両backendがそれぞれ `yorimichi-stg@` / `yorimichi-prod@` を指定していることを確認した。
+  PRのinstall/buildコードもこの主体で動く前提で権限を評価する。既定の `firebase-app-hosting-compute` に広い権限があることは確認したが、
+  カスタムSA指定時に必ず既定SAでビルドされるとは断定しない。実Cloud BuildのserviceAccountは初回実行で確認する。
 - stg/prodは同一GCPプロジェクト・同一Auth（ユーザー共有）。完全な隔離ではない。
 - workflowがsource checkoutしたコードをApp Hostingへ送るため、
   同一リポジトリのPRコードが共有stgで動く。`.github/`変更PRは除外済みだが、
@@ -340,3 +342,11 @@ mainのみcheckoutしてPRコードは実行せず、GitHubの保護ルールも
 マージ済みブランチを別PRで再利用しないこと。
 既存のマージ済みブランチは一括削除しない。ワークフローがmainへ入った後のマージから適用する。
 リポジトリ標準の自動削除設定は管理者権限がないため未変更。
+
+### 2026-11-09の読み取り検証
+
+- backendのenvironmentとserviceAccountは環境ごとの期待値と一致。
+- 各STG_/PROD_シークレット3件の個別IAMは、対応する環境SAだけにsecretAccessorを付与。値は読んでいない。
+- project IAMのdatastore.userは対応DBのresource.name条件付き。これらは設定の確認であり実アクセスの許可/拒否テストではない。
+- Policy Troubleshooter APIを有効化し、stg deploy SAのstg backendへのbuilds.createを照会したが、`UNKNOWN_CONDITIONAL` とdeny説明の内部エラーを返した。ALLOW確認として扱わず、権限も広げていない。
+- 両デプロイ停止変数はtrue。実OIDC交換・build・rollout・通知・ブランチ削除は未実施。

@@ -95,6 +95,11 @@ class ProdReconcileTests(unittest.TestCase):
         # B's latest CI attempt succeeded: B is deployed, not C.
         self.assertEqual(self.mod.select_prod_sha(self.base_api(), 'owner/repo'), self.main)
 
+    def test_newer_run_wins_over_old_run_with_more_attempts(self):
+        older = dict(self.ci_run, id=6, run_attempt=9)
+        self.assertEqual(self.mod.select_prod_sha(
+            self.base_api(runs=[older, self.ci_run]), 'owner/repo'), self.main)
+
     def test_latest_main_ci_not_successful_skips(self):
         for attempt in ({'status': 'completed', 'conclusion': 'failure'},
                         {'status': 'in_progress', 'conclusion': None},
@@ -276,6 +281,11 @@ class ReportTests(unittest.TestCase):
         self.assertIn('yorimichi-stg', body)
         self.assertIn('履歴', body)
         self.assertNotIn('token', body.lower())
+
+    def test_run_url_prefix_does_not_suppress_other_run(self):
+        other = self.mod.build_comment(self.uri, 'a' * 40, self.run_url + '0',
+                                      'https://github.com/owner/repo', 't')
+        self.assertFalse(self.mod.already_reported([self.comment(body=other)], self.run_url))
 
     def test_same_run_rerun_skips_when_bot_comment_exists(self):
         existing = self.comment(body=self.mod.build_comment(

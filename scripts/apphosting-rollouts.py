@@ -21,6 +21,7 @@ import os
 import sys
 import time
 import urllib.request
+from urllib.parse import quote
 
 IN_FLIGHT = frozenset(('QUEUED', 'PENDING_BUILD', 'PROGRESSING'))
 _CLI_LABEL_PREFIX = 'cli-firebase'
@@ -40,7 +41,7 @@ def list_rollouts(fetch, api_base, token):
     while True:
         url = f'{api_base}/rollouts?pageSize=100'
         if page_token:
-            url += f'&pageToken={page_token}'
+            url += f'&pageToken={quote(page_token, safe="")}'
         body = fetch(url, token)
         rollouts.extend(body.get('rollouts') or [])
         unreachable.extend(body.get('unreachable') or [])
@@ -62,7 +63,7 @@ def latest(rollouts):
     """Newest rollout by createTime; None for an empty list."""
     if not rollouts:
         return None
-    return max(rollouts, key=lambda r: r.get('createTime', ''))
+    return max(rollouts, key=lambda r: _epoch(r.get('createTime')))
 
 
 def job_rollouts(rollouts, since_epoch):
