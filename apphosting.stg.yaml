@@ -1,0 +1,35 @@
+# App Hosting バックエンド yorimichi-stg（Environment name: stg）の設定。
+# apphosting.yaml にマージされる。同名変数はこのファイルが優先。
+runConfig:
+  minInstances: 0
+  maxInstances: 1
+
+env:
+  # 環境選択。アプリはこの値と DATABASE_ID の一致をFirebaseモジュール読み込み時に検査する（fail closed）。
+  - variable: NEXT_PUBLIC_APP_ENV
+    value: stg
+  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_ID
+    value: yorimichi-stg
+
+  # stg 用 Firebase Web アプリの公開設定値（秘匿ではない）。
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:1031159186960:web:98001fdfed19e46405ec95
+
+  # 秘密は Cloud Secret Manager に置き、ここでは参照だけにする（値は書かない）。
+  - variable: GEMINI_API_KEY
+    secret: STG_GEMINI_API_KEY
+    availability:
+      - RUNTIME
+
+  # ブラウザに公開される値だが、リポジトリに書くと gitleaks に検出されるため
+  # Secret Manager に置く。NEXT_PUBLIC_ はビルド時に埋め込まれるので BUILD も必要。
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    secret: STG_GOOGLE_MAPS_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: STG_FIREBASE_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME

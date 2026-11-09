@@ -8,6 +8,9 @@ DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジ�
 - Firebase（Auth / Firestore / App Hosting）
 - Gemini API（`src/app/api/gemini/route.ts`、キーはサーバー側のみ）
 
+## 環境
+- stg / prod の構成・デプロイ方法は [docs/environments.md](docs/environments.md) を参照。
+
 ## ドキュメント
 
 | ファイル | 内容 |
@@ -18,6 +21,7 @@ DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジ�
 | `docs/STATUS.md` | 実装状況の観測メモ（コード調査ベース） |
 
 AI エージェントはまずこれらを読むこと（`AGENTS.md` 参照）。
+
 
 ## セットアップ
 ```bash
@@ -30,8 +34,7 @@ Firebase CLI（初回のみ）:
 ```bash
 npm i -g firebase-tools
 firebase login
-firebase use --add            # プロジェクトを選ぶ（.firebaserc が作られる）
-firebase emulators:start      # Auth / Firestore エミュレータ
+firebase emulators:start --config firebase.emulator.json --project demo-yorimichi # Auth / Firestore エミュレータ
 ```
 
 ## Google Maps
