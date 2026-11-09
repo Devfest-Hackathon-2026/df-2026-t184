@@ -1,0 +1,57 @@
+name: Delete merged PR branch
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  delete:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      # No checkout: never execute code from the PR with this write token.
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const branch = pr.head.ref;
+            const repository = await github.rest.repos.get({ owner, repo });
+            if (!pr.merged || pr.head.repo?.full_name !== repository.data.full_name ||
+                branch === repository.data.default_branch || branch === pr.base.ref) {
+              core.info('Not an eligible merged feature branch; skipped');
+              return;
+            }
+            const open = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            if (open.some(p => p.base.ref === branch ||
+                (p.head.repo?.full_name === repository.data.full_name && p.head.ref === branch))) {
+              core.info('Another open PR uses this branch; skipped');
+              return;
+            }
+            let current;
+            try {
+              current = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
+            } catch (error) {
+              if (error.status === 404) {
+                core.info('Branch already deleted');
+                return;
+              }
+              throw error;
+            }
+            if (current.data.object.sha !== pr.head.sha) {
+              core.info('Branch has new commits since the merge; skipped');
+              return;
+            }
+            // GitHub enforces protected-branch/ruleset restrictions. Never bypass them.
+            await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` });
+            core.info(`Deleted merged branch: ${branch}`);
