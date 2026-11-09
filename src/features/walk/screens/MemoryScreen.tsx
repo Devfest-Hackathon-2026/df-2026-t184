@@ -69,7 +69,7 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
         <button
           type="button"
           onClick={onOpenFeed}
-          className="self-center rounded-sm px-2 py-1 font-hand text-base text-ink underline decoration-pink-deep decoration-wavy decoration-2 underline-offset-4 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep"
+          className="self-center rounded-sm px-2 py-1 font-hand text-base text-ink underline decoration-pink-deep decoration-wavy decoration-2 underline-offset-4 focus-visible:focus-ring"
         >
           ともだちの寄り道を見る
         </button>

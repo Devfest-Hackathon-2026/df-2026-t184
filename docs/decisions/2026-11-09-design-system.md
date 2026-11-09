@@ -33,7 +33,7 @@
 
 - 本人（ブリーフ経由）の判断: 基底を `85807bf`＋最新 main にすること、stg/prod 系コミットを除外すること、実アプリとモックを両立させモックは Storybook 側に留めること、SmartHR 着想 DS を入れること
 - AI の実装判断（前セッションから継続・変更なし）: smarthr-ui 非導入、`sky-ink`/`coral-ink` の最深段追加、ChoiceChip の実ラジオ化、page.tsx の実アプリ復帰
-- AI の実装判断（本セッション追加）: `--font-zen` の復帰（実アプリ退行の修正）、`server-only` の再適用
+- AI の実装判断（本セッション追加）: `--font-zen` の復帰（実アプリ退行の修正）、`server-only` の再適用、モック画面のフォーカス輪郭を `focus-ring`（sky-ink 5.1:1）へ統一（旧 `outline-sky-deep` は紙面で約 2.5:1）、disabled チップ/チェックボックスのカーソル競合（`cursor-pointer` が `cursor-not-allowed` をカスケードで上書き）の修正
 
 ### 結果・検証・commit・PR
 

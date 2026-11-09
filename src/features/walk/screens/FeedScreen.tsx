@@ -24,7 +24,7 @@ export const FeedScreen = ({ onBack }: FeedScreenProps): React.ReactElement => (
           type="button"
           aria-label="思い出カードに戻る"
           onClick={onBack}
-          className="shrink-0 rounded-full transition-transform duration-150 ease-out active:translate-x-0.5 active:translate-y-0.5 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-sky-deep"
+          className="shrink-0 rounded-full transition-transform duration-150 ease-out active:translate-x-0.5 active:translate-y-0.5 focus-visible:focus-ring"
         >
           <IconSticker name={IconName.Back} size={BACK_ICON_SIZE} />
         </button>

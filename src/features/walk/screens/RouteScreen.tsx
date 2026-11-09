@@ -38,7 +38,7 @@ export const RouteScreen = ({ state, dispatch }: RouteScreenProps): React.ReactE
           type="button"
           aria-label="入力に戻る"
           onClick={() => dispatch({ type: "restart" })}
-          className="absolute top-4 left-4 rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 active:animate-jelly focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep"
+          className="absolute top-4 left-4 rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 active:animate-jelly focus-visible:focus-ring"
         >
           <IconSticker name={IconName.Back} tone={Tone.Sky} size={BACK_SIZE} />
         </button>

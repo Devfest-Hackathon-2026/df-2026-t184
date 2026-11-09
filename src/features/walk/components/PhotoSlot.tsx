@@ -42,7 +42,7 @@ export const PhotoSlot = ({ taken, tone, caption, onShoot }: PhotoSlotProps): Re
         className={cx(
           "flex aspect-4/3 w-full flex-col items-center justify-center gap-3 rounded-(--radius-sticker) border-3 border-dashed border-ink bg-sticker font-hand text-lg text-ink",
           "transition-[transform,box-shadow] duration-150 ease-out hover:shadow-sticker-sm active:animate-jelly",
-          "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-sky-deep",
+          "focus-visible:focus-ring",
         )}
       >
         <IconSticker name={IconName.Camera} tone={tone} size={SHOOT_ICON_SIZE} />

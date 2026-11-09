@@ -53,7 +53,7 @@ export const FeedCard = ({ post, tilt }: FeedCardProps): React.ReactElement => {
           className={cx(
             "inline-flex min-h-12 items-center gap-2 rounded-full border-3 border-ink px-3 font-hand text-base text-ink",
             "transition-[transform,box-shadow,background-color] duration-150 ease-out active:animate-jelly",
-            "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-sky-deep",
+            "focus-visible:focus-ring",
             liked ? "bg-pink shadow-sticker-sm" : "bg-sticker shadow-pressed hover:shadow-sticker-sm",
           )}
         >
