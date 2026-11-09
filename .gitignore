@@ -40,6 +40,9 @@ firebase-debug.log*
 *-firebase-adminsdk-*.json
 serviceAccount*.json
 
+# GitHub Actions OIDC クレデンシャル (google-github-actions/auth)
+gha-creds-*.json
+
 # vercel
 .vercel
 

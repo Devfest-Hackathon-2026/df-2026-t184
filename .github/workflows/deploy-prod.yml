@@ -1,0 +1,188 @@
+name: Deploy prod
+
+# main への push (マージ) => prod バックエンド (yorimichi-prod) へデプロイする。
+# CI (lint/test/build + gitleaks) が main 上で成功したときだけ動く。
+# workflow_run を使うためワークフロー定義は常にデフォルトブランチのものが実行され、
+# ブランチ側の変更で prod ジョブを書き換えることはできない。
+# 加えて GitHub environment "prod" のデプロイブランチ制限を main に限定し、
+# Workload Identity Federation プロバイダ側でも environment/ref を条件にしている
+# (設定は scripts/bootstrap-github-deploy.sh 参照)。
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy to yorimichi-prod
+    runs-on: ubuntu-latest
+    environment: prod
+    # DEPLOY_PROD_PAUSED=true をリポジトリ変数に設定するとデプロイを一時停止できる。
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      vars.DEPLOY_PROD_PAUSED != 'true'
+    permissions:
+      contents: read
+      id-token: write # OIDC (Workload Identity Federation) 用
+    # prod は直列化 (cancel-in-progress: false)。実行中のデプロイを殺すと
+    # クラウド側ロールアウトだけが残って順序が狂い得るため、新しい run は
+    # キューして順番に適用する。結果として最後に完了した run = 最新の main。
+    concurrency:
+      group: apphosting-deploy-prod
+      cancel-in-progress: false
+    env:
+      GCP_PROJECT_ID: df-2026-t184-prod
+      GCP_REGION: asia-east1
+      BACKEND_ID: yorimichi-prod
+      EXPECTED_ENV: prod
+      FIREBASE_TOOLS_VERSION: "15.35.0"
+      API_BASE: https://firebaseapphosting.googleapis.com/v1beta/projects/df-2026-t184-prod/locations/asia-east1/backends/yorimichi-prod
+    steps:
+      - name: Checkout pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate deploy scope (firebase.json)
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+          const backend = process.env.BACKEND_ID;
+          const cfg = JSON.parse(fs.readFileSync("firebase.json", "utf8"));
+          // firebase deploy は設定ファイルの predeploy/postdeploy をローカルで
+          // シェル実行する (lifecycleHooks)。デプロイジョブでの任意コマンド実行を
+          // 防ぐため全キーを再帰的に拒否する。
+          const banned = new Set(["predeploy", "postdeploy"]);
+          (function scan(o, p) {
+            if (o && typeof o === "object") {
+              for (const [k, v] of Object.entries(o)) {
+                if (banned.has(k)) {
+                  throw new Error(`forbidden lifecycle hook "${k}" at ${p || "root"}`);
+                }
+                scan(v, `${p}.${k}`);
+              }
+            }
+          })(cfg, "");
+          const entries = [].concat(cfg.apphosting || []);
+          const match = entries.filter((e) => e && e.backendId === backend);
+          if (match.length !== 1) {
+            throw new Error(`expected exactly one apphosting entry with backendId=${backend}`);
+          }
+          const c = match[0];
+          if (c.rootDir !== "/") throw new Error(`${backend}: rootDir must be "/"`);
+          if (c.localBuild) throw new Error(`${backend}: localBuild is not allowed`);
+          for (const pat of [".git", "node_modules", ".env*"]) {
+            if (!Array.isArray(c.ignore) || !c.ignore.includes(pat)) {
+              throw new Error(`${backend}: ignore must include "${pat}"`);
+            }
+          }
+          console.log("deploy scope OK");
+          EOF
+
+      - name: Install firebase-tools
+        run: npm install -g "firebase-tools@${FIREBASE_TOOLS_VERSION}"
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_PROD }}
+          service_account: ${{ vars.GCP_DEPLOY_SA_PROD }}
+          create_credentials_file: true
+          # クレデンシャルファイルはワークスペース外 (runner.temp) に置き、
+          # ソースアーカイブへ混入しないようにする。
+          credentials_file_path: ${{ runner.temp }}/gha-creds.json
+          export_environment_variables: true
+          token_format: access_token
+
+      - name: Verify backend identity
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          backend=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" "${API_BASE}")
+          env_name=$(jq -r '.environment' <<<"${backend}")
+          if [ "${env_name}" != "${EXPECTED_ENV}" ]; then
+            echo "::error::backend ${BACKEND_ID} has environment '${env_name}', expected '${EXPECTED_ENV}'"
+            exit 1
+          fi
+          uri=$(jq -r '.uri' <<<"${backend}")
+          echo "BACKEND_URI=${uri}" >> "$GITHUB_ENV"
+          echo "backend ${BACKEND_ID} (env=${env_name}) uri=${uri}"
+
+      - name: Wait for in-flight rollouts
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          # 手動で開始されたロールアウトやリトライの残滓が残っている場合に
+          # 完了を待ち、ロールアウトの順序逆転を防ぐ。
+          deadline=$((SECONDS + 1200))
+          while :; do
+            in_flight=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" \
+              "${API_BASE}/rollouts?pageSize=20" \
+              | jq '[.rollouts[]? | select(.state == "QUEUED" or .state == "PENDING_BUILD" or .state == "PROGRESSING" or .state == "PAUSED")] | length')
+            [ "${in_flight}" = "0" ] && break
+            if [ ${SECONDS} -ge ${deadline} ]; then
+              echo "::error::timed out waiting for in-flight rollouts to settle"
+              exit 1
+            fi
+            echo "waiting for ${in_flight} in-flight rollout(s)..."
+            sleep 15
+          done
+
+      - name: Record job start time
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        run: >-
+          firebase deploy
+          --only "apphosting:${BACKEND_ID}"
+          --project "${GCP_PROJECT_ID}"
+          --non-interactive
+          --force
+
+      - name: Verify rollout succeeded
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          latest=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" \
+            "${API_BASE}/rollouts?pageSize=10" | jq '.rollouts // [] | sort_by(.createTime) | last')
+          if [ -z "${latest}" ] || [ "${latest}" = "null" ]; then
+            echo "::error::no rollout found for ${BACKEND_ID}; deploy may have been skipped"
+            exit 1
+          fi
+          state=$(jq -r '.state' <<<"${latest}")
+          created_epoch=$(date -d "$(jq -r '.createTime' <<<"${latest}")" +%s)
+          # 60 秒の猶予: runner と GCP の時計ずれを吸収しつつ、
+          # ジョブ開始より前のロールアウト (= 新規作成されていない) を検出する
+          if [ "${created_epoch}" -lt "$((JOB_START_EPOCH - 60))" ]; then
+            echo "::error::latest rollout predates this job; new rollout was not created"
+            exit 1
+          fi
+          if [ "${state}" != "SUCCEEDED" ]; then
+            echo "::error::latest rollout state is '${state}', expected 'SUCCEEDED'"
+            exit 1
+          fi
+          echo "rollout $(jq -r '.name' <<<"${latest}") state=${state}"
+
+      - name: Smoke check
+        run: |
+          code=000
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${BACKEND_URI}" || true)
+            case "${code}" in 2*|3*) break;; esac
+            sleep 5
+          done
+          case "${code}" in
+            2*|3*) echo "https://${BACKEND_URI} -> HTTP ${code}";;
+            *) echo "::error::https://${BACKEND_URI} returned HTTP ${code}"; exit 1;;
+          esac

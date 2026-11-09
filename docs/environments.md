@@ -155,3 +155,158 @@ firebase deploy --only firestore:yorimichi-prod
   Owner または IAM Admin 相当の権限が必要。
 - Cloud Storage（アプリ用バケット）は未プロビジョニング。Storage を使う場合は
   別途作成とルール整備が必要（`NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` も未使用）。
+
+## CI/CD（GitHub Actions -> App Hosting）
+
+### トリガーと流れ
+
+- **PR オープン / 更新 => stg**: `.github/workflows/deploy-stg.yml`。
+  CI（lint/test/build + gitleaks）が `pull_request` イベントで成功したとき、
+  `workflow_run` で起動し PR の head_sha を `yorimichi-stg` へデプロイする。
+- **main への push（マージ）=> prod**: `.github/workflows/deploy-prod.yml`。
+  CI が `push` + `head_branch == 'main'` で成功したとき起動する。
+- 両方とも `workflow_run` 起動なので、**ワークフロー定義は常にデフォルト
+  ブランチ上のものが使われる**。PR がワークフローを書き換えて prod の
+  権限を盗むことはできない（trusted workflow 構成）。
+- フォーク PR は `head_repository.fork` チェックで除外。OIDC トークンは
+  発行されない（同一リポジトリの PR のみデプロイ対象）。
+- **ワークフローが有効になるのは main にマージされてから**。
+  `workflow_run` はデフォルトブランチ上のワークフロー定義しか使わない。
+
+### 信頼境界とデプロイスコープの固定
+
+stg デプロイジョブは PR のコードを扱うため、次のガードを入れている:
+
+- `.github/` を変更する PR は stg 自動デプロイをスキップする
+  （CI のゲート自体を PR 側で弱められないようにするため。fail-closed。
+  該当 PR はデプロイされないだけで、マージ後は信頼済み設定で動く）。
+- `firebase.json` の検証（ワークフロー内インラインスクリプト、main 由来で信頼済み）:
+  - `predeploy` / `postdeploy` キーを全階層で拒否。`firebase deploy` は
+    これらをローカルで `shell: true` 実行するため、OIDC クレデンシャルが
+    見えるジョブ内で PR 由来コマンドを走らせない。
+  - `--only apphosting:<固定バックエンド>` に対応するエントリが
+    ちょうど 1 つ存在し `rootDir == "/"` かつ `localBuild` 未使用であること。
+    `ignore` に `.git` / `node_modules` / `.env*` が含まれること。
+  - これによりソース設定の改変で stg ジョブを prod バックエンド・
+    prod シークレット・prod SA に向けることはできない（バックエンドは
+    ワークフロー内の固定値、プロジェクトも `--project` で固定）。
+- `google-github-actions/auth` のクレデンシャルファイルは
+  `credentials_file_path` で `runner.temp`（ワークスペース外）に置く。
+  既定ではワークスペース直下に `gha-creds-*.json` が作られてソース
+  アーカイブに混入し得るため、`.gitignore` と `firebase.json` の
+  apphosting `ignore` にも `gha-creds-*.json` を追加済み（多重防御）。
+- PR のコード自体はクラウド側（Cloud Build / Cloud Run）でビルド・実行
+  される。これはプレビューデプロイの性質上避けられず、stg は
+  「同一リポジトリのコラボレーターのコードが動く共有環境」として扱う。
+
+### stg は共有環境（latest PR wins）
+
+- stg バックエンドは 1 つだけ。最後に完了したデプロイが提供される。
+- `concurrency: apphosting-deploy-stg / cancel-in-progress: true` で
+  新しい run が来たら古い run をキャンセルする。
+- キャンセルされた run のロールアウトがクラウド側で走り続けた場合に備え、
+  デプロイ直前に in-flight ロールアウト（QUEUED/PENDING_BUILD/PROGRESSING/
+  PAUSED）の完了を最大 20 分待つ。これで「古いビルドが新しいビルドを
+  上書きする」順序逆転を実用上防ぐ。
+- 複数 PR で stg を共用するため、PR 単位のプレビュー URL ではない。
+
+### prod の直列化
+
+- `concurrency: apphosting-deploy-prod / cancel-in-progress: false` で
+  run を直列化する。実行中のデプロイを殺すとクラウド側ロールアウトだけが
+  残って順序が狂い得るため、新しい run はキューして順番に適用する。
+
+### OIDC / Workload Identity Federation
+
+- 長寿命キーは発行しない。`google-github-actions/auth@v3` で OIDC トークンを
+  Workload Identity に交換し、環境ごとのデプロイ SA を借用する。
+- プロバイダを `github-stg` / `github-prod` に分け、`attribute_condition` で
+  リポジトリ数値 ID / owner 数値 ID / `event_name == 'workflow_run'` /
+  `environment` クレーム（prod は `ref == refs/heads/main` も）を縛る。
+  デプロイトリガーを workflow_run 以外に変える場合は条件の更新も必要。
+- デプロイ SA へのなりすまし（`roles/iam.workloadIdentityUser`）は
+  `attribute.environment/{env}` の principalSet に限定する。
+- GitHub environments `stg` / `prod` はデプロイ可能ブランチを `main` のみに
+  限定する。`workflow_run` 実行はデフォルトブランチ ref で走るため動作する。
+  フィーチャーブランチへの直接 push では environment を名乗るジョブ自体が
+  実行されず、OIDC トークンも発行されない。
+- **プラン制限の注意**: GitHub environments は private リポジトリでは
+  Pro プラン以上が必要。作成できない場合はブランチ保護が効かず、
+  `environment` クレームが OIDC トークンに付かない可能性がある
+  （WIF 条件評価が失敗する）。その場合はワークフローの `environment:` を
+  外し、WIF 条件と workloadIdentityUser バインドを
+  `attribute.job_workflow_ref` ベースに切り替える。
+- ワークフローが参照する設定値は環境変数ではなく**リポジトリ変数**
+  `GCP_WIF_PROVIDER_STG` / `GCP_DEPLOY_SA_STG` / `GCP_WIF_PROVIDER_PROD` /
+  `GCP_DEPLOY_SA_PROD`（environments が使えなくても機能する）。
+
+### デプロイ SA の最小権限（firebase-tools 15.35.0 のソースに基づく）
+
+`firebase deploy --only apphosting:<backend>` が行う API 呼び出しを
+列挙して決めている。権限が足りない場合は該当行のコメントを参照。
+
+| 権限 | 根拠（firebase-tools のコードパス） |
+|---|---|
+| `roles/firebaseapphosting.viewer`（プロジェクト） | `listBackends`（prepare.ts）、`listRollouts`/`listBuilds`（`getNextRolloutId`）、`getBackend`、LRO ポーリングの `operations.get`、`getProject`（projectNumber 解決）に必要な get/list 一式 |
+| `roles/serviceusage.serviceUsageConsumer`（プロジェクト） | `ensureApiEnabled`/`ensureRequiredApisEnabled` の `serviceusage.services.get` と `x-goog-user-project` 用の `services.use` |
+| カスタム `apphostingDeploySupport` = `storage.buckets.list`（プロジェクト） | `gcs.upsertBucket` が `listBuckets` で既存バケットを探すため |
+| カスタム `apphostingRolloutCreator` = `firebaseapphosting.builds.create` + `firebaseapphosting.rollouts.create`（条件付き） | `orchestrateRollout` の `createBuild` / `createRollout`（validateOnly 含む）。条件 `resource.type == 'firebaseapphosting.googleapis.com/Backend' && resource.name.endsWith('/backends/<id>')` で対象バックエンドに限定 |
+| `roles/storage.objectCreator`（ソースバケット単位） | `uploadArchive` が XML API `PUT /<bucket>/<object>` で zip をアップロードするため |
+| `roles/iam.serviceAccountUser`（`firebase-app-hosting-compute` SA） | `verifyRuntimeServiceAccountAccess` が `iam.serviceAccounts.actAs` を `testIamPermissions` で確認するため必須 |
+| `roles/iam.serviceAccountUser`（対応環境のランタイム SA） | backend.serviceAccount は作成済みで厳密には不要の可能性があるが、防御として付与 |
+| `roles/iam.workloadIdentityUser`（デプロイ SA 自身） | WIF プールからのなりすまし用。`attribute.environment/<env>` 限定 |
+
+- `firebase-app-hosting-compute@<project>.iam.gserviceaccount.com` は
+  firebase-tools 固定名のビルドパイプライン SA で、環境共有。初回デプロイ
+  前に存在しないとロールアウトのビルドが失敗し得るため bootstrap で
+  作成し、`provisionDefaultComputeServiceAccount` と同じ 4 ロール
+  （`firebaseapphosting.computeRunner` / `firebase.sdkAdminServiceAgent` /
+  `developerconnect.readTokenAccessor` / `storage.objectViewer`）を付与する。
+  この SA の `storage.objectViewer`（プロジェクト）がソース zip の
+  読み取りを担う。
+- `provisionDefaultComputeServiceAccount` 内の `addServiceAccountToRoles`
+  は `resourcemanager.projects.setIamPolicy` が無くても警告のみで
+  継続する（least-privilege でも致命的ではない設計）。ただし既に
+  付与済みの前提にしている。
+- 条件付きバインドが firebaseapphosting API で評価されない場合は、
+  条件なしのプロジェクト単位付与に緩めることになる（その場合の環境境界は
+  WIF プロバイダの `environment` 条件と GitHub environment 保護に依存）。
+  初回デプロイ時に `builds.create` / `rollouts.create` が権限不足で失敗
+  しないか確認すること。
+
+### セットアップ手順
+
+```bash
+bash scripts/bootstrap-github-deploy.sh
+```
+
+プロジェクトのオーナー相当 + リポジトリ admin 相当のアカウントで実行する
+冪等スクリプト。詳細はスクリプト先頭のコメント参照。
+
+### 一時停止（pause switch）
+
+- リポジトリ変数 `DEPLOY_STG_PAUSED` / `DEPLOY_PROD_PAUSED` を `true` に
+  すると対応するデプロイジョブが `if` でスキップされる。
+- GitHub UI から対象 workflow を disable にしてもよい。
+
+### 既知の制限・注意
+
+- **クレジット自動停止は未設定**。予算 $20 に対し Cloud Build は PR push
+  ごとに走るため、頻繁な push で課金が膨らみ得る。ビルド時間が長い場合は
+  `DEPLOY_*_PAUSED` で止めるか、`minInstances: 0` を維持する。
+- `firebase deploy` は `--force` で「バックエンドが無いと警告してスキップ」
+  する経路がある。ワークフローはデプロイ前にバックエンドの存在と
+  `environment` 値を確認し、デプロイ後に最新ロールアウトが
+  `state == SUCCEEDED` かつジョブ開始以降の作成であることを検証する。
+- CLI はロールアウトを完了までポーリングする（masterTimeout 60 分）。
+  途中でジョブがキャンセルされてもクラウド側ロールアウトは続行するため、
+  上記の待機 + 検証で順序と結果を担保している。実行中ロールアウトの
+  キャンセル（`firebaseapphosting.operations.cancel`）は権限を付けていない。
+  詰まったロールアウトはコンソールで対処する。
+- 同日中の連続ロールアウト ID（`build-YYYY-MM-DD-NNN`）は並列実行時に
+  衝突し得る。直列化しているため通常は起きないが、発生したらリトライ。
+- ロールバックは App Hosting のロールアウト単位。古いコミットを再デプロイ
+  するには該当 CI run のデプロイを re-run するか、ローカルから
+  `firebase deploy --only apphosting:<backend>` を実行する。
+- App Hosting バックエンド自体に IAM ポリシー（setIamPolicy）は存在せず、
+  バックエンド単位の制御は条件付きプロジェクトバインドで代替している。
