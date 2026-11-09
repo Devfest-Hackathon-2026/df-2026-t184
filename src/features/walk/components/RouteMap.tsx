@@ -67,7 +67,7 @@ export const RouteMap = ({ step, dest, variant = MapVariant.Full, className }: R
       <polygon points={CROWD_BAND} fill="var(--color-coral)" stroke="var(--color-coral-deep)" strokeWidth="2" strokeDasharray="4 4" />
       <path d="M44 70 L300 344" stroke="var(--color-ink-soft)" strokeWidth="3" strokeLinecap="round" opacity="0.45" />
       {mini ? null : (
-        <text x="196" y="214" transform="rotate(47 196 214)" textAnchor="middle" fill="var(--color-coral-deep)" fontFamily="var(--font-hand)" fontSize="12">
+        <text x="196" y="214" transform="rotate(47 196 214)" textAnchor="middle" fill="var(--color-coral-ink)" fontFamily="var(--font-hand)" fontSize="12">
           人が多い通り
         </text>
       )}
