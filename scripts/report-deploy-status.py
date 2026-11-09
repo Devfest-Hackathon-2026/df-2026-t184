@@ -78,6 +78,7 @@ def head_still_current(api_fn, event):
     for pr in run.get('pull_requests', []):
         current = api_fn(f'repos/{repo}/pulls/{pr["number"]}')
         if (current.get('state') == 'open'
+                and current.get('base', {}).get('ref') == 'main'
                 and current.get('head', {}).get('sha') == run['head_sha']
                 and current.get('head', {}).get('repo', {}).get('full_name') == repo
                 and current.get('base', {}).get('repo', {}).get('full_name') == repo):

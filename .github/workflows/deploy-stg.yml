@@ -201,7 +201,8 @@ jobs:
 
   status:
     name: Publish Deploy / stg result
-    needs: deploy
+    # pendingが遅れて最終結果を上書きしない順序を保証する。
+    needs: [deploy, status-pending]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # 失敗・キャンセル・スキップ時も結果を残すため always()。CI失敗・fork・

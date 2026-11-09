@@ -208,7 +208,7 @@ for env in ${ENVS}; do
   "${GCLOUD[@]}" projects add-iam-policy-binding "${PROJECT_ID}" \
     --member "${member}" \
     --role "${role_name}" \
-    --condition="title=rollout-$(backend_id "${env}"),description=backend tagged deploy-env=${env} only,expression=${cond_expr}" >/dev/null
+    --condition="^@^title=rollout-$(backend_id "${env}")@description=backend tagged deploy-env=${env} only@expression=${cond_expr}" >/dev/null
 done
 
 log "service account IAM"

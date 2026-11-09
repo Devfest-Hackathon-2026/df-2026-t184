@@ -392,6 +392,13 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(fields['context'], 'Deploy / stg')
         self.assertEqual(fields['target_url'], self.RUN_URL)
 
+    def test_pending_skipped_for_non_main_base(self):
+        self.pr['base']['ref'] = 'feature'
+        api, calls = self.api()
+        self.assertEqual(self.mod.publish(api, self.event, mode='pending',
+                                          run_url=self.RUN_URL), 'skipped')
+        self.assertFalse(self.posts(calls))
+
     def test_pending_skipped_when_pr_head_moved(self):
         self.pr['head']['sha'] = 'b' * 40
         api, calls = self.api()
