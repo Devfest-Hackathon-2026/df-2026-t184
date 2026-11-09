@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import {
   ButtonSize,
+  ButtonVariant,
   ChoiceChip,
   Doodle,
   DoodleKind,
@@ -61,7 +62,7 @@ export const Buttons: Story = {
       <StickerButton size={ButtonSize.Lg}>寄り道ルートを作る</StickerButton>
       <div className="flex gap-3">
         <StickerButton tone={Tone.Mint}>見つけた</StickerButton>
-        <StickerButton plain>記録する</StickerButton>
+        <StickerButton variant={ButtonVariant.Plain}>記録する</StickerButton>
         <StickerButton disabled>押せない</StickerButton>
       </div>
     </div>
@@ -95,13 +96,16 @@ export const Icons: Story = {
 const ChipsDemo = (): React.ReactElement => {
   const [picked, setPicked] = useState(0);
   return (
-    <div role="radiogroup" aria-label="今の気分" className="flex gap-3">
-      {["静けさ", "レトロ", "グルメ"].map((label, i) => (
-        <ChoiceChip key={label} checked={picked === i} onSelect={() => setPicked(i)} tilt={i % 2 ? 2 : -2} className="px-4 py-2 font-hand">
-          {label}
-        </ChoiceChip>
-      ))}
-    </div>
+    <fieldset className="m-0 flex min-w-0 border-0 p-0">
+      <legend className="sr-only">今の気分</legend>
+      <div className="flex gap-3">
+        {["静けさ", "レトロ", "グルメ"].map((label, i) => (
+          <ChoiceChip key={label} name="demo-mood" value={label} checked={picked === i} onSelect={() => setPicked(i)} tilt={i % 2 ? 2 : -2} className="px-4 py-2 font-hand">
+            {label}
+          </ChoiceChip>
+        ))}
+      </div>
+    </fieldset>
   );
 };
 
