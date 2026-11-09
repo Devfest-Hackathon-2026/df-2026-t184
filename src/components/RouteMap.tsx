@@ -22,10 +22,13 @@ function getStart(): Promise<LatLng> {
   });
 }
 
-async function geocode(text: string): Promise<LatLng | null> {
+// strict: 一部だけ一致した結果（partial_match）は捨てる。Gemini が作った存在しない場所名を検索すると、
+// 後ろに付けた目的地名だけに一致して、目的地と同じ位置が返ってくるため
+async function geocode(text: string, strict = false): Promise<LatLng | null> {
   const { Geocoder } = (await google.maps.importLibrary("geocoding")) as google.maps.GeocodingLibrary;
   try {
     const res = await new Geocoder().geocode({ address: text || DEFAULT_DEST, region: "JP" });
+    if (strict && res.results[0]?.partial_match) return null;
     const loc = res.results[0]?.geometry.location;
     return loc ? { lat: loc.lat(), lng: loc.lng() } : null;
   } catch {
@@ -57,6 +60,37 @@ type Props = {
   onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
   onError: () => void;
 };
+
+// Routes API（徒歩）で、道に沿った経路の点列を取る。失敗したら null
+async function walkingRoute(origin: LatLng, destination: LatLng, via: LatLng[] = []): Promise<LatLng[] | null> {
+  try {
+    const { Route } = (await google.maps.importLibrary("routes")) as google.maps.RoutesLibrary;
+    const { routes } = await Route.computeRoutes({ origin, destination, intermediates: via.map((location) => ({ location })), travelMode: "WALKING", fields: ["path"] });
+    const pts = routes?.[0]?.path;
+    return pts && pts.length > 1 ? pts.map((p) => ({ lat: p.lat, lng: p.lng })) : null;
+  } catch (e) {
+    console.warn("[route] 徒歩ルートを取れなかったため直線を表示します", e);
+    return null;
+  }
+}
+
+// 同じ区間を何度も取り直さないためのキャッシュ（画面の行き来や開発時の2重実行で、呼び出し回数＝費用が増えるのを防ぐ）。
+// Promise ごと保存するので、同時に2回呼ばれてもリクエストは1回になる
+const routeCache = new Map<string, Promise<LatLng[] | null>>();
+
+function walkingRouteCached(origin: LatLng, destination: LatLng, via: LatLng[] = []): Promise<LatLng[] | null> {
+  const key = JSON.stringify([origin, destination, via]);
+  let hit = routeCache.get(key);
+  if (!hit) {
+    hit = walkingRoute(origin, destination, via);
+    routeCache.set(key, hit);
+    // 失敗（null）は残さない。次に開いたときに再試行できるようにする
+    hit.then((r) => {
+      if (r === null) routeCache.delete(key);
+    });
+  }
+  return hit;
+}
 
 // 出発地→目的地の線の上で、どれくらい進んだ位置か（0=出発地、1=目的地）
 function progress(a: LatLng, b: LatLng, p: LatLng): number {
@@ -91,12 +125,13 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
         // 提案された場所を目的地の周辺で検索。見つからない・遠すぎるものは仮の位置にする
         const fallback = sampleCheckpoints(start, goal);
         const found = placesKey
-          ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`)))
+          ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`, true)))
           : [];
         if (cancelled || !el.current) return;
         const found3 = fallback.map((f, i) => {
           const g = found[i];
-          return g && distKm(g, goal) < 5 ? g : f;
+          // 目的地と同じ位置（50m未満）は、場所が見つからず目的地に一致しただけとみなして捨てる
+          return g && distKm(g, goal) < 5 && distKm(g, goal) > 0.05 ? g : f;
         });
         // 行ったり来たりしないよう、出発地から目的地へ向かう順に並べる（クエストの順番も呼び出し側で揃える）
         const order = found3.map((_, i) => i).sort((x, y) => progress(start, goal, found3[x]) - progress(start, goal, found3[y]));
@@ -104,6 +139,9 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
         onOrderRef.current?.(order);
         const path = [start, ...cps, goal];
         markers.current.path = path;
+        // 調整用：ピンが重なって見えないときの手がかり（座標は公開情報。キーは含まない）
+        const r4 = (p: LatLng) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
+        console.info(`[map] 出発 ${r4(start)} / ピン ${cps.map(r4).join(" ・ ")} / 目的地 ${r4(goal)}（${dest || "未入力"}）`);
 
         // 下のカードの高さに合わせて、地図の枠の下端を決める（カードの高さが変わっても追従）
         const mapEl = el.current;
@@ -126,9 +164,10 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
           gestureHandling: "greedy",
         });
 
-        // 最短ルート（仮：直線）と寄り道ルート（点線）
-        new Polyline({ map, path: [start, goal], strokeColor: COLORS.gray, strokeWeight: 5, strokeOpacity: 0.9 });
-        new Polyline({
+        // 最短ルート（実線）と寄り道ルート（点線）。まず直線で描き、徒歩ルートが取れたら線だけ差し替える
+        // （Routes API の応答を待たずに地図を出す。遅い・失敗のときも直線のまま動く）
+        const directLine = new Polyline({ map, path: [start, goal], strokeColor: COLORS.gray, strokeWeight: 5, strokeOpacity: 0.9 });
+        const detourLine = new Polyline({
           map,
           path,
           strokeOpacity: 0,
@@ -156,6 +195,12 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
           if ((map.getZoom() ?? 0) > 16) map.setZoom(16);
         });
         paint(stepRef.current);
+
+        // 道に沿った徒歩ルート。取れたら線だけ差し替える。取れなければ（API未有効・キー制限・通信失敗）直線のまま
+        const [direct, detour] = await Promise.all([walkingRouteCached(start, goal), walkingRouteCached(start, goal, cps)]);
+        if (cancelled) return;
+        if (direct) directLine.setPath(direct);
+        if (detour) detourLine.setPath(detour);
       } catch (e) {
         console.error(e);
         if (!cancelled) onError();

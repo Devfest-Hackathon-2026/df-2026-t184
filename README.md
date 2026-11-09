@@ -39,8 +39,23 @@ firebase emulators:start --config firebase.emulator.json --project demo-yorimich
 
 ## Google Maps
 - `.env.local` に `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` を入れる（未設定ならSVGのサンプル地図で動く）。
-- このキーはブラウザに公開される。Cloud Console で **HTTP リファラー制限**（localhost と本番URL）と、**Maps JavaScript API / Geocoding API のみ**に絞ること。
+- このキーはブラウザに公開される。Cloud Console で **HTTP リファラー制限**（localhost と本番URL）と、**Maps JavaScript API / Geocoding API / Routes API のみ**に絞ること。
 - 位置情報が使えない時の出発地は東京駅、目的地が見つからない時は上野公園付近。
+- 経路は Routes API（徒歩）で道に沿って引く。取れない時（API未有効・キー制限・上限超え）は直線で表示する。
+
+### 使いすぎ防止の上限（クォータ）
+クレジットは大会用の $20（約3,000円）。予算アラートは通知だけで自動では止まらないので、API ごとに1日の上限を付けている（プロジェクト `df-2026-t184-prod`）。
+
+| API | 設定した上限 | 状態 |
+|---|---|---|
+| Geocoding API（v3） | 1日 1,500 / 1分 100 | 設定済み |
+| Maps JavaScript API | 地図の読み込み 1日 300 / 1分 30。3D地図は 1日 0 / 1分 10 | 設定済み |
+| Routes API（ComputeRoutes） | 1日 600 / 1分 30（1人あたり1分 30） | 設定済み |
+| Gemini（本番キー） | Cloud側では1日の上限を付けられない（あるのは地域ごとの1分の枠だけ） | アプリ側の回数制限（PR #7・#8）で守る |
+
+- 上限に達すると、その機能だけ止まる（地図は直線、チェックポイントは仮の位置、クエストはサンプルに戻る）。アプリ全体は止まらない。
+- 数字は審査中の利用を1日100回程度と見た案。足りなければチーム3人で相談して上げる。
+- クレジットを使い切った時は、3人の合意でクレジットを追加し、あとで割り勘にする。
 
 ## 実行方法
 
