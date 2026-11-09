@@ -8,6 +8,17 @@ DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジ�
 - Firebase（Auth / Firestore / App Hosting）
 - Gemini API（`src/app/api/gemini/route.ts`、キーはサーバー側のみ）
 
+## ドキュメント
+
+| ファイル | 内容 |
+|---|---|
+| `docs/HACKATHON.md` | ハッカソンの前提・必須ルール（二次資料の転記。公式原本とは未照合） |
+| `docs/DECISIONS.md` | 技術選定の記録と未確認事項 |
+| `docs/decisions/` | AI開発時の質問・回答・理由の判断記録（`.agents/skills/own-the-why` 参照） |
+| `docs/STATUS.md` | 実装状況の観測メモ（コード調査ベース） |
+
+AI エージェントはまずこれらを読むこと（`AGENTS.md` 参照）。
+
 ## セットアップ
 ```bash
 npm install
