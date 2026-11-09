@@ -1,4 +1,4 @@
-import { ButtonSize, cx, IconName, IconSticker, StickerButton, StickerCard, Tape, TONE_FILL, Tone } from "@/components/sticker";
+import { ButtonSize, ButtonVariant, cx, IconName, IconSticker, StickerButton, StickerCard, Tape, TONE_FILL, Tone } from "@/components/sticker";
 
 import type { Quest } from "../content";
 import { CHECKPOINTS } from "../flow";
@@ -65,7 +65,7 @@ export const QuestSheet = ({ quest, step, onCapture, onFound, className }: Quest
         <p className="font-note text-sm leading-relaxed text-ink">{quest.why}</p>
       </div>
       <div className="grid grid-cols-2 gap-3 pt-1">
-        <StickerButton plain size={ButtonSize.Lg} onClick={onCapture}>
+        <StickerButton variant={ButtonVariant.Plain} size={ButtonSize.Lg} onClick={onCapture}>
           <IconSticker name={IconName.Camera} tone={Tone.Sky} size={CAMERA_SIZE} />
           記録する
         </StickerButton>

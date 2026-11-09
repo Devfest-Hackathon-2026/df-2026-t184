@@ -1,4 +1,4 @@
-import { cx, IconName, IconSticker, StickerButton, Tape, Tone } from "@/components/sticker";
+import { ButtonVariant, cx, IconName, IconSticker, StickerButton, Tape, Tone } from "@/components/sticker";
 
 const SHOOT_ICON_SIZE = 56;
 const RETAKE_ICON_SIZE = 28;
@@ -59,7 +59,7 @@ export const PhotoSlot = ({ taken, tone, caption, onShoot }: PhotoSlotProps): Re
         </div>
         <figcaption className="pt-2 text-center font-hand text-sm text-ink">{caption}</figcaption>
       </figure>
-      <StickerButton plain onClick={onShoot}>
+      <StickerButton variant={ButtonVariant.Plain} onClick={onShoot}>
         <IconSticker name={IconName.Camera} tone={tone} size={RETAKE_ICON_SIZE} />
         撮り直す
       </StickerButton>

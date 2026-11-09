@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { BubbleTail, ButtonSize, IconName, IconSticker, Mascot, MascotMood, SpeechBubble, StickerButton, Toast } from "@/components/sticker";
+import { BubbleTail, ButtonSize, ButtonVariant, IconName, IconSticker, Mascot, MascotMood, SpeechBubble, StickerButton, Toast } from "@/components/sticker";
 
 import { MemoryCard } from "../components/MemoryCard";
 import { moodById } from "../content";
@@ -58,7 +58,7 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
           <IconSticker name={IconName.Share} size={SHARE_ICON_SIZE} />
           シェアする
         </StickerButton>
-        <StickerButton plain onClick={() => dispatch({ type: "restart" })}>
+        <StickerButton variant={ButtonVariant.Plain} onClick={() => dispatch({ type: "restart" })}>
           もう一度歩く
         </StickerButton>
       </div>
