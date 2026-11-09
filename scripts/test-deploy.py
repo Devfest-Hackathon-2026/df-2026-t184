@@ -65,5 +65,73 @@ class DeploymentTests(unittest.TestCase):
                 load('prepare-deploy-source').prepare(trusted, source, 'stg')
 
 
+class ReportTests(unittest.TestCase):
+    def setUp(self):
+        self.mod = load('report-stg-deploy')
+        self.event = {'repository': {'full_name': 'owner/repo', 'html_url': 'https://github.com/owner/repo'},
+                      'workflow_run': {'conclusion': 'success', 'path': '.github/workflows/ci.yml',
+                                       'head_repository': {'full_name': 'owner/repo'},
+                                       'event': 'pull_request', 'head_sha': 'a' * 40}}
+        self.pr = {'state': 'open', 'body': '本文\n',
+                   'base': {'ref': 'main', 'repo': {'full_name': 'owner/repo'}},
+                   'head': {'sha': 'a' * 40, 'repo': {'full_name': 'owner/repo'}}}
+        self.uri = 'yorimichi-stg--df-2026-t184-prod.asia-east1.hosted.app'
+        self.run_url = 'https://github.com/owner/repo/actions/runs/1'
+
+    def test_block_appended_preserving_body(self):
+        block = self.mod.build_block(self.uri, 'a' * 40, self.run_url,
+                                     self.event['repository']['html_url'], '2026-01-01T00:00:00Z')
+        new = self.mod.upsert_block(self.pr['body'], block)
+        self.assertTrue(new.startswith('本文\n'))
+        self.assertEqual(new.count(self.mod.MARK_BEGIN), 1)
+        self.assertEqual(new.count(self.mod.MARK_END), 1)
+        self.assertIn('https://' + self.uri, new)
+        self.assertIn('yorimichi-stg', new)
+        self.assertIn('df-2026-t184-prod', new)
+        self.assertNotIn('token', new.lower())
+
+    def test_block_replaced_idempotently(self):
+        block1 = self.mod.build_block(self.uri, 'a' * 40, self.run_url,
+                                      'https://github.com/owner/repo', 't1')
+        block2 = self.mod.build_block(self.uri, 'b' * 40, self.run_url,
+                                      'https://github.com/owner/repo', 't2')
+        body = self.mod.upsert_block('前書き\n', block1)
+        body2 = self.mod.upsert_block(body, block2)
+        self.assertTrue(body2.startswith('前書き\n'))
+        self.assertNotIn('a' * 40, body2)
+        self.assertIn('b' * 40, body2)
+        self.assertEqual(self.mod.upsert_block(body2, block2), body2)
+        self.assertEqual(body2.count(self.mod.MARK_BEGIN), 1)
+
+    def test_malformed_markers_fail_closed(self):
+        block = self.mod.build_block(self.uri, 'a' * 40, self.run_url,
+                                     'https://github.com/owner/repo', 't')
+        for body in [f'x {self.mod.MARK_BEGIN}', f'{self.mod.MARK_END} y',
+                     f'{self.mod.MARK_END} reversed {self.mod.MARK_BEGIN}',
+                     f'{self.mod.MARK_BEGIN} a {self.mod.MARK_BEGIN} b {self.mod.MARK_END}']:
+            with self.assertRaises(ValueError, msg=body):
+                self.mod.upsert_block(body, block)
+
+    def test_no_report_when_ineligible(self):
+        for mutate in (lambda e, p: e['workflow_run'].update(conclusion='failure'),
+                       lambda e, p: p.update(state='closed'),
+                       lambda e, p: p['head'].update(sha='b' * 40),
+                       lambda e, p: p['head']['repo'].update(full_name='fork/repo'),
+                       lambda e, p: p['base'].update(ref='feature')):
+            self.setUp()
+            mutate(self.event, self.pr)
+            self.assertIsNone(self.mod.planned_body(self.event, self.pr, self.uri,
+                                                    self.run_url, 'https://github.com/owner/repo', 't'))
+
+    def test_plan_skips_when_body_current(self):
+        when = '2026-01-01T00:00:00Z'
+        new = self.mod.planned_body(self.event, self.pr, self.uri,
+                                    self.run_url, 'https://github.com/owner/repo', when)
+        self.assertIsNotNone(new)
+        self.pr['body'] = new
+        self.assertIsNone(self.mod.planned_body(self.event, self.pr, self.uri,
+                                                self.run_url, 'https://github.com/owner/repo', when))
+
+
 if __name__ == '__main__':
     unittest.main()

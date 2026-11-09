@@ -177,6 +177,28 @@ stgはPRごとのプレビューではなく共用。最後にデプロイされ
 GitHub concurrencyはFIFOを保証せず、待機中のジョブが置き換わる場合もあるため、
 待機終了後にもPR/mainの最新SHAを照合する。mainの古いCI再実行で巻き戻さない。
 
+### stg デプロイ結果の PR 本文への記録
+
+デプロイと smoke check が成功すると、`report` ジョブが対象 PR の**本文**に
+`<!-- STG_DEPLOY_STATUS -->` で囲まれたブロックを書き込む。内容は
+stg URL、デプロイ SHA、ワークフロー実行リンク、記録日時、
+Firestore `yorimichi-stg`（`df-2026-t184-prod`）へのコンソールリンクと
+「共有 stg/DB は PR 専用ではなく他 PR で上書きされ得る」注記のみで、
+認証情報や API キーは含まない。
+
+- report ジョブは deploy ジョブの成功を前提に別ジョブとして動き、
+  `pull-requests: write` だけを持つ（`id-token` なし、GCP 権限なし）。
+- main 由来のスクリプト（`scripts/report-stg-deploy.py`）だけを実行し、
+  PR ソースや成果物は一切使わない。
+- PR が open・main 向け・同一リポジトリ・head SHA 不変でない場合は何も書かない。
+  PATCH 直前に本文を再取得し、マーカー外は一切変更しない。
+  ブロックは冪等（内容が同じなら PATCH しない）。マーカーが壊れている
+  （片方だけ・逆順・複数）場合は fail closed で更新を拒否する。
+- Firebase **Hosting** には PR ごとの自動プレビューコメントがあるが、
+  これは App Hosting 用に GitHub Actions で実装した独自の仕組み。
+  Hosting 版はサイト単位の一時プレビューであり、本リポジトリの
+  共有 stg バックエンドとは役割が異なる。
+
 ### 認証とソースの扱い
 
 - `google-github-actions/auth@v3`のOIDCを使う。長期のSA鍵は作らない。

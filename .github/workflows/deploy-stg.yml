@@ -27,6 +27,9 @@ jobs:
     concurrency:
       group: apphosting-deploy-stg
       cancel-in-progress: false
+    outputs:
+      deployed: ${{ steps.candidate.outputs.deployable }}
+      uri: ${{ steps.backend.outputs.uri }}
     env:
       GCP_PROJECT_ID: df-2026-t184-prod
       GCP_REGION: asia-east1
@@ -84,6 +87,7 @@ jobs:
           token_format: access_token
 
       - name: Verify backend identity
+        id: backend
         if: steps.candidate.outputs.deployable == 'true'
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
@@ -96,6 +100,7 @@ jobs:
           fi
           uri=$(jq -r '.uri' <<<"${backend}")
           echo "BACKEND_URI=${uri}" >> "$GITHUB_ENV"
+          echo "uri=${uri}" >> "$GITHUB_OUTPUT"
           echo "backend ${BACKEND_ID} (env=${env_name}) uri=${uri}"
 
       - name: Wait for in-flight rollouts
@@ -175,3 +180,38 @@ jobs:
             2*|3*) echo "https://${BACKEND_URI} -> HTTP ${code}";;
             *) echo "::error::https://${BACKEND_URI} returned HTTP ${code}"; exit 1;;
           esac
+
+  report:
+    name: Record stg deploy in PR body
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # deploy ジョブ全体が成功し、実際にデプロイが走ったときだけ実行する
+    # (deploy + verify + smoke check 成功が前提)。スキップ時は PR を触らない。
+    if: >-
+      needs.deploy.result == 'success' &&
+      needs.deploy.outputs.deployed == 'true'
+    # PR 本文の書き込みだけに権限を限定する。OIDC (id-token) は付けない。
+    # checkout は trusted (main) 側スクリプトのみで、PR 由来のコードや
+    # アーティファクトは使わない。
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: apphosting-report-stg
+      cancel-in-progress: false
+    env:
+      DEPLOYED_URI: ${{ needs.deploy.outputs.uri }}
+      DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Update PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 trusted/scripts/report-stg-deploy.py

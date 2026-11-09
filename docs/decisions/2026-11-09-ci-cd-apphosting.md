@@ -22,3 +22,14 @@ mainの固定設定でソースをデプロイする。PR内のデプロイ設�
 共有stgは最後のデプロイが表示される。最新SHAを再確認し、古いmainの巻き戻しを防ぐ。
 GCP/GitHubの接続と初回公開の状況はPR本文に記録する。
 この変更は費用・権限に関わるため、AGENTS.mdの規定どおりレビュー後にマージする。
+
+## 追加依頼（同日）
+
+ユーザーの依頼（親エージェント経由、原文のまま転記）:
+「after successful stg deployment automatically return stg DB and URL in PR BODY」
+
+実装: deploy 成功後に `report` ジョブ（`pull-requests: write` のみ、`id-token` なし、
+main 由来スクリプトのみ）が PR 本文の `<!-- STG_DEPLOY_STATUS -->` ブロックを
+冪等に更新する。マーカー外の本文は変更せず、マーカー破損時は更新しない。
+単体テストを `scripts/test-deploy.py` に追加（ブロックの保持/冪等置換/
+不正マーカー拒否/非適格時に書き込みなし）。
