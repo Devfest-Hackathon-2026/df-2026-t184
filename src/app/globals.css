@@ -5,6 +5,11 @@
  * 真っ黒は使わず、線・影・文字はすべて焦げ茶。影はぼかさず右下にずらす。
  */
 @theme {
+  /*
+   * プリミティブトークン — 生の色・値の置き場。
+   * コンポーネントはここを直接参照せず、下のセマンティックトークン経由で使う。
+   * パステルは「淡い(面) / 濃い(印・線)」のペア。-ink は文字・図示に耐える最深段。
+   */
   --color-ink: #4a3426;
   --color-ink-soft: #7a5d49;
   --color-paper: #fff8ea;
@@ -25,6 +30,32 @@
   --color-coral-deep: #ef8a5d;
   --color-lilac: #e8ddfb;
   --color-lilac-deep: #9a83dd;
+
+  /* コントラストを担保する最深段（sky の補強・coral の文字色） */
+  --color-sky-ink: #2b6ea6;
+  --color-coral-ink: #c24914;
+
+  /*
+   * セマンティックトークン — 役割の名前。プリミティブを参照する。
+   * 新しい部品・画面では原則こちらだけを使う。
+   */
+  --color-fg: var(--color-ink);
+  --color-fg-subtle: var(--color-ink-soft);
+  --color-fg-on-deep: var(--color-sticker);
+  --color-canvas: var(--color-kraft);
+  --color-surface: var(--color-paper);
+  --color-surface-raised: var(--color-sticker);
+  --color-surface-disabled: var(--color-paper-line);
+  --color-border: var(--color-ink);
+  --color-border-subtle: var(--color-ink-soft);
+  --color-focus: var(--color-sky-ink);
+  --color-danger: var(--color-coral-ink);
+  --color-danger-surface: var(--color-coral);
+  --color-overlay: rgb(74 52 38 / 0.16);
+  --color-scrim: rgb(74 52 38 / 0.5);
+
+  /* 方眼の1マス。gap-grid / p-grid / m-grid などで使う */
+  --spacing-grid: 22px;
 
   --font-hand: var(--font-hand-face, "Hachi Maru Pop"), "Hiragino Maru Gothic ProN", sans-serif;
   --font-note: var(--font-note-face, "Yomogi"), "Hiragino Maru Gothic ProN", sans-serif;
@@ -58,8 +89,8 @@
 }
 
 body {
-  background: var(--color-kraft);
-  color: var(--color-ink);
+  background: var(--color-canvas);
+  color: var(--color-fg);
   font-family: var(--font-note);
 }
 
@@ -117,6 +148,18 @@ body {
   filter: drop-shadow(0 0 0 var(--color-sticker)) drop-shadow(2.5px 0 0 var(--color-sticker))
     drop-shadow(-2.5px 0 0 var(--color-sticker)) drop-shadow(0 2.5px 0 var(--color-sticker))
     drop-shadow(0 -2.5px 0 var(--color-sticker)) drop-shadow(3px 3px 0 var(--color-ink));
+}
+
+/*
+ * フォーカスインジケータ。白フチを残してから太めの輪郭を描く（smarthr-ui の
+ * focusIndicatorStyles をステッカー表現に翻訳したもの）。
+ * 対象: focus-visible。色は --color-focus で紙面とのコントラストを確保する。
+ */
+@utility focus-ring {
+  isolation: isolate;
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 1.5px var(--color-sticker);
 }
 
 @media (prefers-reduced-motion: reduce) {
