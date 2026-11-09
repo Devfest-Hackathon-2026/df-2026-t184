@@ -114,13 +114,14 @@ def publish(api_fn, event, mode, deploy_result='', deployed='', deploy_sha='',
             paused=False, run_url='', env='stg'):
     """Post one commit status. Returns the posted state or 'skipped'.
 
-    Nothing is posted when the triggering CI event is not a successful,
+    Nothing is posted when the triggering CI event is not a canonical,
     same-repo pull_request CI run, or when this run's trigger is no longer the
     newest CI attempt for the SHA.
     """
     run = event['workflow_run']
     repo = event['repository']['full_name']
-    if run['event'] != 'pull_request' or not _shared().event_ok(run, repo):
+    if (run['event'] != 'pull_request' or run.get('path') != CI_PATH
+            or run.get('head_repository', {}).get('full_name') != repo):
         return 'skipped'
     sha = deploy_sha or run['head_sha']
     if not _SHA_RE.fullmatch(sha):
@@ -129,6 +130,8 @@ def publish(api_fn, event, mode, deploy_result='', deployed='', deploy_sha='',
         return 'skipped'
     context = f'Deploy / {env}'
     if mode == 'pending':
+        if run.get('conclusion') != 'success':
+            return 'skipped'
         if not head_still_current(api_fn, event):
             return 'skipped'
         state, description = 'pending', f'deploying to shared {env}'
@@ -137,7 +140,10 @@ def publish(api_fn, event, mode, deploy_result='', deployed='', deploy_sha='',
         # any drift means the mapping is untrustworthy, so post nothing.
         if deployed == 'true' and sha != run['head_sha']:
             return 'skipped'
-        state, description = final_state(deploy_result, deployed, paused, env)
+        if run.get('conclusion') != 'success':
+            state, description = 'error', 'latest CI did not succeed; deployment blocked'
+        else:
+            state, description = final_state(deploy_result, deployed, paused, env)
     post(api_fn, repo, sha, state, context, description, run_url)
     return state
 

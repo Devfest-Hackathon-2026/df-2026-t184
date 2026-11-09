@@ -46,3 +46,7 @@
 - pendingは「CIイベントhead == 現在のopen・同一repo・main向けPRのhead」のときだけ投稿。
 - workflow_runはmain定義のworkflowしか動かないため、**本PR自身ではstatus機能は動かない**。mainへマージ後、CI完了で発火する次のrunから有効。
 - 本PRは `.github/` を変更するため、既存のstgデプロイgate（`.github/`変更PRは対象外）で自動デプロイはskipされる。**merge後に別の検証PR（アプリ変更）が必要**。そのPRで初めて builds.create が tag条件の下で実評価される。
+
+## レビュー対応
+
+CI再実行が失敗・取消・timeoutになった場合も、最新attemptのfinalジョブがDeploy / stgをerrorへ終端する。古いattemptのfinalは引き続き投稿しない。pending→CI再実行失敗→errorの回帰テストをRed/Greenで確認（39件成功）。既存の修正依頼の範囲内。

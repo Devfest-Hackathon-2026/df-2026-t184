@@ -492,8 +492,7 @@ class StatusTests(unittest.TestCase):
         self.assertFalse(self.posts(calls))
 
     def test_foreign_or_failed_ci_posts_nothing(self):
-        for mutate in (lambda e: e['workflow_run'].update(conclusion='failure'),
-                       lambda e: e['workflow_run'].update(path='.github/workflows/other.yml'),
+        for mutate in (lambda e: e['workflow_run'].update(path='.github/workflows/other.yml'),
                        lambda e: e['workflow_run']['head_repository'].update(full_name='fork/repo')):
             self.setUp()
             mutate(self.event)
@@ -503,6 +502,18 @@ class StatusTests(unittest.TestCase):
                                               deploy_sha=self.sha, run_url=self.RUN_URL),
                              'skipped')
             self.assertFalse(self.posts(calls))
+
+    def test_failed_ci_rerun_terminates_previous_pending(self):
+        for conclusion in ('failure', 'cancelled', 'timed_out'):
+            self.setUp()
+            api, calls = self.api()
+            self.assertEqual(self.mod.publish(api, self.event, mode='pending'), 'pending')
+            self.event['workflow_run'].update(run_attempt=2, conclusion=conclusion)
+            api, calls = self.api(run_obj={'id': 42, 'run_attempt': 2})
+            self.assertEqual(self.mod.publish(api, self.event, mode='final',
+                                              deploy_result='skipped'), 'error')
+            self.assertEqual(self.fields(self.posts(calls)[0])['state'], 'error')
+            self.assertEqual(self.mod.publish(api, self.event, mode='pending'), 'skipped')
 
     def test_short_sha_rejected(self):
         self.event['workflow_run']['head_sha'] = 'abc123'
