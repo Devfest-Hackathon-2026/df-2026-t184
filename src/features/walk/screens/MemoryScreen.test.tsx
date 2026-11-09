@@ -12,7 +12,7 @@ const STATE: WalkState = {
   shots: [true, false, true],
   memos: ["風鈴の音が思ったより大きかった", "", "ベンチで10分、ぼーっとした"],
 };
-const COPIED = "共有リンクをコピーしました";
+const COPIED = "見本：共有リンクは実際にはコピーされません";
 const LONG_ENOUGH_MS = 10_000;
 
 describe("MemoryScreen", () => {
@@ -22,15 +22,18 @@ describe("MemoryScreen", () => {
     vi.useRealTimers();
   });
 
-  it("シェアするとお知らせが出て、しばらくすると消える", () => {
-    render(<MemoryScreen state={STATE} dispatch={vi.fn()} />);
+  it("お知らせ領域は常にあり、シェアすると文が入って、しばらくすると消える", () => {
+    const { container } = render(<MemoryScreen state={STATE} dispatch={vi.fn()} />);
+    const region = (): HTMLElement | null => container.querySelector('[aria-live="polite"]');
+    expect(region()).toBeInTheDocument();
     expect(screen.queryByText(COPIED)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "シェアする" }));
-    expect(screen.getByText(COPIED)).toBeInTheDocument();
+    expect(region()).toHaveTextContent(COPIED);
 
     act(() => vi.advanceTimersByTime(LONG_ENOUGH_MS));
     expect(screen.queryByText(COPIED)).not.toBeInTheDocument();
+    expect(region()).toBeInTheDocument();
   });
 
   it("もう一度歩くで restart を送る", () => {
