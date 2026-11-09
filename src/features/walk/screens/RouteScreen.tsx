@@ -1,6 +1,6 @@
 "use client";
 
-import { IconName, IconSticker, Mascot, MascotMood, Tone } from "@/components/sticker";
+import { IconName, IconSticker, Mascot, MascotMood, ScreenHeading, Tone } from "@/components/sticker";
 
 import { QuestSheet } from "../components/QuestSheet";
 import { MapVariant, RouteMap } from "../components/RouteMap";
@@ -32,12 +32,13 @@ export const RouteScreen = ({ state, dispatch }: RouteScreenProps): React.ReactE
   const quest = moodById(state.mood).quests[Math.min(state.step, LAST_INDEX)];
   return (
     <div className="flex flex-1 flex-col">
+      <ScreenHeading className="sr-only">寄り道ルート</ScreenHeading>
       <div className="relative min-h-80 flex-1 overflow-hidden border-b-3 border-ink">
         <RouteMap step={state.step} dest={state.dest} variant={MapVariant.Full} className="absolute inset-0" />
         <button
           type="button"
           aria-label="入力に戻る"
-          onClick={() => dispatch({ type: "restart" })}
+          onClick={() => dispatch({ type: "backToInput" })}
           className="absolute top-4 left-4 rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 active:animate-jelly focus-visible:focus-ring"
         >
           <IconSticker name={IconName.Back} tone={Tone.Sky} size={BACK_SIZE} />

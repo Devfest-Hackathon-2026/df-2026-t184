@@ -46,6 +46,7 @@ export type WalkAction =
   | { type: "found" }
   | { type: "openCapture" }
   | { type: "backToRoute" }
+  | { type: "backToInput" }
   | { type: "shoot" }
   | { type: "setMemo"; memo: string }
   | { type: "saveAndNext" }
@@ -102,6 +103,9 @@ export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
       return { ...s, screen: Screen.Capture };
     case "backToRoute":
       return { ...s, screen: Screen.Route };
+    case "backToInput":
+      // 入力のやり直し。記録・気分・時間は残す。消すのは明示的な restart だけ。
+      return { ...s, screen: Screen.Input };
     case "shoot":
       return { ...s, shots: replaceAt(s.shots, s.step, true) };
     case "setMemo":
