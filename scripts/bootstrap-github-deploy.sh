@@ -16,6 +16,8 @@ gcloud() { command gcloud --quiet --account="${GCLOUD_ACCOUNT}" --billing-projec
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bootstrap-github-deploy.XXXXXX")
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+command -v jq >/dev/null 2>&1 || { echo "jq is required for IAM policy migration"; exit 1; }
+
 PROJECT_ID="df-2026-t184-prod"
 PROJECT_NUMBER="1031159186960"
 REGION="asia-east1"
@@ -31,6 +33,13 @@ SOURCE_BUCKET="firebaseapphosting-sources-${PROJECT_NUMBER}-${REGION}"
 ROLLOUT_ROLE_ID="apphostingRolloutCreator"   # builds.create + rollouts.create
 SUPPORT_ROLE_ID="apphostingDeploySupport"    # storage.buckets.list
 
+# IAM条件はBackendのresource.name/type属性では評価できない
+# (App Hostingのbuilds.createはresource属性を供給しない。失敗run 42590117353の403)。
+# 代わりにbackendへ直接bindしたdeploy-envタグのmatchTagIdで環境を限定する。
+# プロジェクトへのタグbindは環境区別が消えるため行わない。
+TAG_KEY_NAMESPACED="${PROJECT_ID}/deploy-env"
+TAG_KEY_DESCRIPTION="App Hosting backend deployment environment boundary"
+
 COMPUTE_SA="${COMPUTE_SA_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 backend_id()  { case "$1" in stg) echo yorimichi-stg;; prod) echo yorimichi-prod;; *) return 1;; esac; }
@@ -38,6 +47,7 @@ deploy_sa()   { echo "github-deploy-$1@${PROJECT_ID}.iam.gserviceaccount.com"; }
 runtime_sa()  { case "$1" in stg) echo "yorimichi-stg@${PROJECT_ID}.iam.gserviceaccount.com";;
                             prod) echo "yorimichi-prod@${PROJECT_ID}.iam.gserviceaccount.com";; *) return 1;; esac; }
 pause_var()   { case "$1" in stg) echo DEPLOY_STG_PAUSED;; prod) echo DEPLOY_PROD_PAUSED;; *) return 1;; esac; }
+backend_resource() { echo "//firebaseapphosting.googleapis.com/projects/${PROJECT_ID}/locations/${REGION}/backends/$(backend_id "$1")"; }
 provider_id() { echo "github-$1"; }
 provider_resource() {
   echo "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/github-$1"
@@ -134,6 +144,36 @@ else
     --permissions "storage.buckets.list" >/dev/null
 fi
 
+log "deploy-env tags (backend-scoped IAM conditions)"
+if ! "${GCLOUD[@]}" resource-manager tags keys describe "${TAG_KEY_NAMESPACED}" \
+    --format='value(name)' >/dev/null 2>&1; then
+  "${GCLOUD[@]}" resource-manager tags keys create "${TAG_KEY_NAMESPACED#*/}" \
+    --parent "projects/${PROJECT_NUMBER}" --description "${TAG_KEY_DESCRIPTION}"
+fi
+TAG_KEY_NAME=$("${GCLOUD[@]}" resource-manager tags keys describe "${TAG_KEY_NAMESPACED}" \
+  --format='value(name)')
+
+tag_value_name() {
+  "${GCLOUD[@]}" resource-manager tags values describe "${TAG_KEY_NAMESPACED}/$1" \
+    --format='value(name)'
+}
+
+for env in ${ENVS}; do
+  if ! tag_value_name "${env}" >/dev/null 2>&1; then
+    "${GCLOUD[@]}" resource-manager tags values create "${env}" \
+      --parent "${TAG_KEY_NAME}" --description "${env} environment"
+  fi
+  value_name=$(tag_value_name "${env}")
+  parent="$(backend_resource "${env}")"
+  # tagはbackendへ直接bindする。プロジェクトbindは環境区別が消えるので行わない。
+  if ! "${GCLOUD[@]}" resource-manager tags bindings list \
+      --parent "${parent}" --location "${REGION}" \
+      --format='value(tagValue)' | grep -qx "${value_name}"; then
+    "${GCLOUD[@]}" resource-manager tags bindings create \
+      --tag-value "${value_name}" --parent "${parent}" --location "${REGION}"
+  fi
+done
+
 log "project IAM for deploy SAs"
 for env in ${ENVS}; do
   member="serviceAccount:$(deploy_sa "${env}")"
@@ -145,11 +185,30 @@ for env in ${ENVS}; do
       --member "${member}" --role "${role}" --condition=None >/dev/null
   done
 
-  cond_expr="resource.type == 'firebaseapphosting.googleapis.com/Backend' && resource.name.endsWith('/backends/$(backend_id "${env}")')"
+  # 旧resource属性条件(App Hostingでは評価不能)が残っていれば、このmemberだけ
+  # そのbindingから外す。get/set + etagで他のbindingは一切触らない。
+  role_name="projects/${PROJECT_ID}/roles/${ROLLOUT_ROLE_ID}"
+  policy_file="${TMP_DIR}/project-iam-${env}.json"
+  "${GCLOUD[@]}" projects get-iam-policy "${PROJECT_ID}" --format=json > "${policy_file}"
+  if jq -e --arg member "${member}" --arg role "${role_name}" '
+      [.bindings[] | select(.role == $role and (.members | index($member))
+         and ((.condition.expression // "") | contains("resource.name.endsWith")))]
+      | length > 0' "${policy_file}" >/dev/null; then
+    jq --arg member "${member}" --arg role "${role_name}" '
+      .bindings |= (
+        map(if .role == $role and (.members | index($member))
+               and ((.condition.expression // "") | contains("resource.name.endsWith"))
+            then .members -= [$member] else . end)
+        | map(select(.members | length > 0)))' \
+      "${policy_file}" > "${policy_file}.new"
+    "${GCLOUD[@]}" projects set-iam-policy "${PROJECT_ID}" "${policy_file}.new"
+  fi
+
+  cond_expr="resource.matchTagId('${TAG_KEY_NAME}', '$(tag_value_name "${env}")')"
   "${GCLOUD[@]}" projects add-iam-policy-binding "${PROJECT_ID}" \
     --member "${member}" \
-    --role "projects/${PROJECT_ID}/roles/${ROLLOUT_ROLE_ID}" \
-    --condition="title=rollout-$(backend_id "${env}"),expression=${cond_expr}" >/dev/null
+    --role "${role_name}" \
+    --condition="title=rollout-$(backend_id "${env}"),description=backend tagged deploy-env=${env} only,expression=${cond_expr}" >/dev/null
 done
 
 log "service account IAM"

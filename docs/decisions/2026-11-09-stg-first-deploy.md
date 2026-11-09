@@ -7,6 +7,6 @@
 - 範囲: DEPLOY_STG_PAUSEDのみ解除し、main由来のコードを検証用PRからデプロイする。文書差分だけのPRでも既存workflowの対象条件を満たす。prodは停止を維持する。
 - 制約: 秘密値を表示・記録しない。DBの実データを変更しない。IAMエラー時に無条件権限へ変更しない。
 - 事前確認: #16マージ後のCI成功。両backendの環境別SA指定・個別Secret IAMは読み取り確認済み。Policy TroubleshooterはUNKNOWN_CONDITIONALのため、実API評価を成功扱いにしていない。
-- 実機結果: 実行待ち。成功・失敗の結果とrun URLを検証後に追記する。
+- 実機結果: run [42590117353](https://github.com/shun-os/df-2026-t184/actions/runs/42590117353) はDeployステップで失敗。CI成功・OIDC認証・ソースGCSアップロードは成功、`firebaseapphosting.builds.create` が403（resource.type/name条件がApp Hostingでは評価不能）。併せてデプロイ失敗がPR Checksに見えない欠陥を確認。修正は [2026-11-09-stg-deploy-fix.md](2026-11-09-stg-deploy-fix.md)（本PRをfix PRへリスコープする案を記録）。
 - 関連PR: https://github.com/shun-os/df-2026-t184/pull/16
 - 会話リンク: 未取得

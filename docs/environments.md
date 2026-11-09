@@ -186,6 +186,29 @@ prodの選定は**トリガーとなったイベントのSHAではなく、ロ�
 再解決し、選定SHAが変わっていればskipする（新しいmainはそれ自身の
 workflow_runが別ジョブで処理する）。sourceのcheckoutはこの選定SHAに一致させる。
 
+### stg デプロイ結果の PR Checks への表示（Deploy / stg status）
+
+`deploy-stg.yml` の `status-pending` / `status` ジョブが、CIイベントの
+head SHA に `Deploy / stg` の commit status を投稿する。PRのChecks欄に
+pending / success / failure / error として表示され、`target_url` は
+該当するDeploy workflowのActions run URLを指す。
+
+- `status-pending` はdeployジョブと同じ起動条件で先行して `pending` を投稿する。
+- `status` は `needs: deploy` + `always()` で、deployの結果（成功・失敗・
+  キャンセル・スキップ）を `success` / `failure` / `error` として最終投稿する。
+- `success` は deploy+verify+smoke の全成功（`deployed == 'true'`）のときだけ。
+  skip・paused（`DEPLOY_STG_PAUSED=true`）・stale candidate は `error`。
+  キャンセル・タイムアウトも `error`。
+- `statuses: write` はこの2ジョブだけに分離して付与（`id-token` なし、
+  GCP権限なし）。スクリプト（`scripts/report-deploy-status.py`）は
+  trusted=main のcheckoutだけから実行し、PRソースでstatusを偽装しない。
+- 上書き防止: 投稿前に「このrunを起こしたCI runが当該SHAの最新runかつ
+  最新attemptか」をAPIで再確認し、古いrerun・並行run・キャンセルが
+  新しい結果を上書きしない。
+- pendingは「CIイベントhead == 現在のopen・同一repo・main向けPRのhead」を
+  APIで確認したときだけ投稿する（stale SHAには投稿しない）。
+- 別repo・CI失敗のworkflow_runイベントには一切投稿しない。
+
 ### stg デプロイ結果の PR コメントへの記録
 
 デプロイと smoke check が成功すると、`report` ジョブが対象 PR へ
@@ -246,7 +269,13 @@ API、deploy SA、CLI既定compute SA、ソースバケット、カスタムロ�
 
 deploy SAにはApp Hosting viewer、Service Usage Consumer、バケット一覧、ソースバケットへの
 objectCreator、既定compute SAと対応環境runtime SAのactAsを与える。
-builds.create/rollouts.createはバックエンド名条件付きで付与する。
+builds.create/rollouts.createは**deploy-envタグ条件**（`resource.matchTagId`）で付与する。
+タグはプロジェクト `df-2026-t184-prod` スコープのタグキー `deploy-env`
+（`tagKeys/281481181339464`、既存作成済みを再利用）の値 `stg` / `prod` を、
+各backendへ `--location=asia-east1` で**直接bind**する。プロジェクトへの
+タグbindは環境区別が消えるため行わない。
+（旧来の `resource.type`/`resource.name` 条件はApp Hostingのbuilds.createが
+resource属性を供給しないため常に不成立だった。失敗run 42590117353を参照。）
 **条件付き権限の実API評価は初回デプロイで検証する。失敗時に無条件の権限へ自動変更しない。**
 CLI既定compute SAの4ロールはfirebase-toolsのprovision処理に合わせている。
 
@@ -266,12 +295,14 @@ GitHub variables は `DEPLOY_STG_PAUSED=true` / `DEPLOY_PROD_PAUSED=true` が
 （workflowのjob条件がpause変数を見る）。有効化は以下の順で、各段階の確認を
 済ませてから人間が変数を`false`にする。エージェントがpauseを自動解除しない。
 
-1. 権限検証: deploy SAの条件付きロール（builds.create/rollouts.create）が
+1. 権限検証: deploy SAのタグ条件付きロール（builds.create/rollouts.create）が
    意図どおり評価されるかを確認する。**失敗しても無条件の権限へ自動で
-   切り替えない**（権限拡大fallbackは行わない）。
+   切り替えない**（権限拡大fallbackは行わない）。Policy Troubleshooterは
+   App Hosting backendのタグ条件を評価できない（UNKNOWN_INFOが返る）ため、
+   実証は実デプロイの成功/失敗で行う。
 2. `DEPLOY_STG_PAUSED`のみ`false`にする。
 3. アプリ変更のPRを立てて、stgでOIDCトークン交換・ビルド・ロールアウト・
-   smoke check・PRコメント投稿が実際に成功することを確認する。
+   smoke check・PRコメント投稿・`Deploy / stg` statusの推移が実際に成功することを確認する。
    ここまで確認できた時点が「stgの実機検証済み」。
 4. `DEPLOY_PROD_PAUSED`を`false`にする。
 5. mainへのpush CI成功（必要なら既存の成功runを再実行）でprodへの
@@ -282,8 +313,9 @@ CIのpassは実機検証ではない。OIDC交換・builds/rollouts作成・roll
 
 ##### 確認済み・未確認のリスク（受容済みとは書かない）
 
-- deploy SAのバックエンド名条件付き`builds.create`/`rollouts.create`は、
+- deploy SAのタグ条件付き`builds.create`/`rollouts.create`は、
   条件が実APIで意図どおり評価されるか**未実測**。初回デプロイで検証する。
+  旧来の`resource.name`条件は実デプロイで403が確定済み（下記「2026-11-09の検証」）。
 - `apphosting.<env>.yaml`の`availability: [BUILD, RUNTIME]`シークレットを
   ビルド側で誰が解決するか（compute SA/サービスエージェント/他）は**未実測**。
 - [公式Backend API仕様](https://firebase.google.com/docs/reference/apphosting/rest/v1beta/projects.locations.backends)では `serviceAccount` はCloud BuildとCloud Runの両方に使われる。
@@ -350,3 +382,26 @@ mainのみcheckoutしてPRコードは実行せず、GitHubの保護ルールも
 - project IAMのdatastore.userは対応DBのresource.name条件付き。これらは設定の確認であり実アクセスの許可/拒否テストではない。
 - Policy Troubleshooter APIを有効化し、stg deploy SAのstg backendへのbuilds.createを照会したが、`UNKNOWN_CONDITIONAL` とdeny説明の内部エラーを返した。ALLOW確認として扱わず、権限も広げていない。
 - 両デプロイ停止変数はtrue。実OIDC交換・build・rollout・通知・ブランチ削除は未実施。
+
+### 2026-11-09の実デプロイ結果とタグ条件への移行
+
+- stg初回デプロイ（PR #21発、main head `6cf6670` 由来のrun
+  [42590117353](https://github.com/shun-os/df-2026-t184/actions/runs/42590117353)）は
+  **Deploy ステップで失敗**。CI成功・OIDC認証・ソースGCSアップロードは成功し、
+  `firebaseapphosting.builds.create` が403で拒否された。旧条件
+  `resource.type`/`resource.name.endsWith` はApp Hostingの当該呼び出しが
+  resource属性を供給しないため常に不成立（Audit logのresourceAttributesも空）。
+- 併せて、workflow_run由来のrunはmain headにチェックが付きPRにはCIしか
+  表示されない欠陥が判明（失敗runがPR上で見えない）。`Deploy / stg`の
+  commit status表示で対処（上記PR Checks節）。
+- 対処: backendへ `deploy-env` タグを直接bindし、IAM条件を
+  `resource.matchTagId` へ置換。作成値は `stg`=`tagValues/281480213023116`、
+  `prod`=`tagValues/281482408117851`（既存key `tagKeys/281481181339464` の下、
+  `df-2026-t184-prod/deploy-env`）。stg側deploy SA bindingのみ置換済み。
+  prod deploy SAのbindingは旧式のまま（prodはpaused、bootstrap適用で移行）。
+- Policy Troubleshooter v3（実タグを取得して評価）でも
+  `UNKNOWN_INFO`が返り、effectiveTagsが取得されない（App Hosting backendは
+  troubleshooterのタグ取得に未対応と観測）。Cloud Asset analyze-iam-policyも
+  当該resource名を未対応（INVALID_ARGUMENT）。**UNKNOWNは証明にしない**:
+  ALLOW/DENYの実証はpause解除後の実デプロイに委ねる。
+- 詳細と判断記録: [decisions/2026-11-09-stg-deploy-fix.md](decisions/2026-11-09-stg-deploy-fix.md)。
