@@ -3,6 +3,7 @@ import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 import {
   assertFirebaseWebConfig,
+  assertLocalEmulator,
   resolveAppEnvironment,
   resolveFirestoreDatabaseId,
 } from "@/lib/env";
@@ -21,11 +22,16 @@ const firebaseConfig = {
 
 // デプロイ環境では APP_ENV と DB ID が必須かつ整合していることだけを許す。
 // 未設定・不一致の場合はここで例外になり、意図しない DB（例: stg→prod）への
-// 接続を防ぐ（fail closed）。ローカルでは未設定でも動く。
+// 接続を防ぐ。local のFirebase利用はエミュレータ必須。
 export const appEnvironment = resolveAppEnvironment(
   process.env.NEXT_PUBLIC_APP_ENV,
   process.env.NODE_ENV,
 );
+assertLocalEmulator(appEnvironment, process.env.NEXT_PUBLIC_FIREBASE_EMULATOR);
+if (appEnvironment === "local") {
+  firebaseConfig.apiKey ||= "demo-key";
+  firebaseConfig.projectId ||= "demo-yorimichi";
+}
 assertFirebaseWebConfig(firebaseConfig, appEnvironment);
 const firestoreDatabaseId = resolveFirestoreDatabaseId(
   appEnvironment,

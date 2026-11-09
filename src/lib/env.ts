@@ -46,7 +46,7 @@ export function resolveAppEnvironment(
  * 環境に対応する Firestore データベース ID を解決する。
  * - stg / prod: 環境と一致する名前付き DB の指定を必須とし、
  *   不一致・未指定・(default) へのフォールバックはすべて拒否する
- * - local: 任意。指定があればその ID、なければ undefined（=(default) DB）
+ * - local: エミュレータ用。実環境のDB名を拒否し、省略時は (default)。
  */
 export function resolveFirestoreDatabaseId(
   appEnv: AppEnvironment,
@@ -54,6 +54,9 @@ export function resolveFirestoreDatabaseId(
 ): string | undefined {
   const normalized = databaseId?.trim();
   if (appEnv === "local") {
+    if (normalized === FIRESTORE_DATABASE_IDS.stg || normalized === FIRESTORE_DATABASE_IDS.prod) {
+      throw new Error("local では実環境のDB名を使用できません。実DBには stg / prod を明示してください。");
+    }
     return normalized || undefined;
   }
   const expected = FIRESTORE_DATABASE_IDS[appEnv];
@@ -104,5 +107,11 @@ export function assertFirebaseWebConfig(
     throw new Error(
       `環境 "${appEnv}" の Firebase Web 設定が不足しています: ${missing.join(", ")}。apphosting.${appEnv}.yaml の env 設定を確認してください。`,
     );
+  }
+}
+
+export function assertLocalEmulator(appEnv: AppEnvironment, enabled: string | undefined): void {
+  if (appEnv === "local" && enabled !== "true") {
+    throw new Error("local のFirebase利用には NEXT_PUBLIC_FIREBASE_EMULATOR=true が必須です。");
   }
 }

@@ -1,3 +1,4 @@
+import { deleteApp, getApps } from "firebase/app";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // src/lib/firebase.ts が env.ts の解決を実際に通しているかの結線テスト。
@@ -13,7 +14,8 @@ const STG_ENV = {
   NEXT_PUBLIC_FIREBASE_APP_ID: "1:1031159186960:web:98001fdfed19e46405ec95",
 };
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.all(getApps().map(deleteApp));
   vi.unstubAllEnvs();
   vi.resetModules();
 });
@@ -43,4 +45,16 @@ describe("firebase.ts の環境結線", () => {
       ._databaseId?.database;
     expect(dbId).toBe("yorimichi-stg");
   });
+});
+
+it("initializes local emulators without real Firebase credentials", async () => {
+  vi.stubEnv("NEXT_PUBLIC_APP_ENV", "local");
+  vi.stubEnv("NEXT_PUBLIC_FIREBASE_EMULATOR", "true");
+  vi.stubEnv("NEXT_PUBLIC_FIREBASE_DATABASE_ID", undefined);
+  vi.stubEnv("NEXT_PUBLIC_FIREBASE_API_KEY", "");
+  vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "");
+  const mod = await import("./firebase");
+  expect(mod.app.options.apiKey).toBe("demo-key");
+  expect(mod.app.options.projectId).toBe("demo-yorimichi");
+  expect(mod.auth.emulatorConfig?.host).toBe("localhost");
 });

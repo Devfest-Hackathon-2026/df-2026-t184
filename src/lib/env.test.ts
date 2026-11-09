@@ -71,9 +71,8 @@ describe("resolveFirestoreDatabaseId", () => {
   it("is optional in local and passes an explicit value through", () => {
     expect(resolveFirestoreDatabaseId("local", undefined)).toBeUndefined();
     expect(resolveFirestoreDatabaseId("local", "")).toBeUndefined();
-    expect(resolveFirestoreDatabaseId("local", "yorimichi-stg")).toBe(
-      "yorimichi-stg",
-    );
+    expect(() => resolveFirestoreDatabaseId("local", "yorimichi-stg")).toThrow();
+    expect(() => resolveFirestoreDatabaseId("local", "yorimichi-prod")).toThrow();
     expect(resolveFirestoreDatabaseId("local", "demo-db")).toBe("demo-db");
   });
 });

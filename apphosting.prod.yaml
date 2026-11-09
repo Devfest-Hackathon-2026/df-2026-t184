@@ -6,7 +6,7 @@ runConfig:
   maxInstances: 2
 
 env:
-  # 環境選択。アプリはこの値と DATABASE_ID の一致を起動時に検査する（fail closed）。
+  # 環境選択。アプリはこの値と DATABASE_ID の一致をFirebaseモジュール読み込み時に検査する（fail closed）。
   - variable: NEXT_PUBLIC_APP_ENV
     value: prod
   - variable: NEXT_PUBLIC_FIREBASE_DATABASE_ID

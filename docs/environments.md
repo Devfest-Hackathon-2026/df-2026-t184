@@ -25,12 +25,12 @@ stg と prod の 2 環境を同居させている。Auth は環境間で共有�
 （`src/lib/firebase-admin.ts`）の両方が同じ値を使う。
 
 - `NEXT_PUBLIC_APP_ENV` 未設定:
-  - `NODE_ENV=production` では起動時に例外（設定漏れのデプロイを黙って通さない）
+  - `NODE_ENV=production` ではFirebaseモジュール読み込み時に例外（設定漏れのデプロイを黙って通さない）
   - それ以外（`next dev`、テスト）は `local` として動く
 - `stg` / `prod` では `NEXT_PUBLIC_FIREBASE_DATABASE_ID` が必須で、
   値は環境と一致している必要がある（`stg`→`yorimichi-stg`、`prod`→`yorimichi-prod`）。
-  不一致・未指定・`(default)` へのフォールバックはすべて起動時エラー。
-- `local` では DB ID は任意（省略時は `(default)` DB、エミュレータ併用を想定）。
+  不一致・未指定・`(default)` へのフォールバックはすべてFirebaseモジュール読み込み時エラー。
+- `local` のFirebase利用は `NEXT_PUBLIC_FIREBASE_EMULATOR=true` が必須。DB ID省略時はエミュレータの `(default)` を使い、実環境のDB名は拒否する。
 - `NEXT_PUBLIC_APP_ENV` の値が `stg`/`prod`/`local` 以外なら常にエラー。
 
 これらは `src/lib/env.test.ts` でテスト済み（`npm test`）。
@@ -84,7 +84,7 @@ stg / prod で同じ Auth を共有するため、同じアカウントが両環
 - 無料枠の DB は 1 プロジェクト 1 個まで: `yorimichi-stg` が freeTier であり、
   `yorimichi-prod` は課金対象（prod は削除保護も付いている）。
 - クライアント SDK・admin SDK とも `NEXT_PUBLIC_FIREBASE_DATABASE_ID` で
-  名前付き DB を明示選択する（`(default)` DB は使わない・存在もしない）。
+  名前付き DB を明示選択する（クラウド側には `(default)` DB は作成していない）。
 
 ## IAM / 権限の境界
 
@@ -108,12 +108,14 @@ cp .env.example .env.local   # 値を入れる（APP_ID / API キー類）
 npm run dev
 ```
 
-- 既定（`NEXT_PUBLIC_APP_ENV=local`）ではエミュレータか `(default)` DB 向け。
-  エミュレータを使う場合:
+- 既定の `local` はエミュレータ専用。`.env.example` のまま次を実行する:
   ```bash
-  firebase emulators:start            # auth:9099 / firestore:8080
-  # .env.local に NEXT_PUBLIC_FIREBASE_EMULATOR=true
+  firebase emulators:start --project demo-yorimichi
   ```
+  APIキーとprojectIdが空なら `demo-key` / `demo-yorimichi` を補う。ブラウザと
+  Admin SDKの両方がAuth `localhost:9099`、Firestore `localhost:8080` に接続する。
+  Admin SDKでは `FIREBASE_AUTH_EMULATOR_HOST` / `FIRESTORE_EMULATOR_HOST` を自動設定する。
+  これらを手動設定した場合、上記の値と異なる接続先は拒否する。
 - stg の実 DB に接続したい場合: `.env.local` に `NEXT_PUBLIC_APP_ENV=stg` と
   `NEXT_PUBLIC_FIREBASE_DATABASE_ID=yorimichi-stg`、stg の Web アプリ設定値、
   `gcloud auth application-default login` を済ませる。ルールが全拒否なので
