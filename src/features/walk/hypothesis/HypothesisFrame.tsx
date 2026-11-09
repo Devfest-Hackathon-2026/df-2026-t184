@@ -26,7 +26,7 @@ export const HypothesisFrame = ({ scenario, children }: HypothesisFrameProps): R
   <div className="flex flex-col items-center gap-6 py-4">
     <section
       aria-label={`検証用モック ${scenario.label}`}
-      className="relative w-97.5 rounded-(--radius-sticker) border-3 border-ink bg-sticker p-5 font-note shadow-sticker"
+      className="relative w-full max-w-97.5 rounded-(--radius-sticker) border-3 border-ink bg-sticker p-5 font-note shadow-sticker"
     >
       <Tape tone={scenario.tone} angle={TAPE_ANGLE} className="-top-3 left-6" />
       <header className="flex items-start justify-between gap-3">
@@ -59,6 +59,6 @@ export const HypothesisFrame = ({ scenario, children }: HypothesisFrameProps): R
       </p>
     </section>
 
-    <div className="w-97.5">{children}</div>
+    <div className="w-full max-w-97.5">{children}</div>
   </div>
 );
