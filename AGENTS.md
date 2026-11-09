@@ -37,6 +37,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 いずれにも当てはまらない変更は、PRのレビューなしでマージしてよい。レビュー要否はこの節を基準とし、READMEの「1人レビューでmerge」より優先する。必要なテスト・チェックの実施は省略しない。
 
+### 環境・デプロイのルール
+
+stg と prod は 1 つの GCP プロジェクト `df-2026-t184-prod` に同居している。構成の詳細は [docs/environments.md](docs/environments.md) にある。
+
+- デプロイは 1 環境ずつ、対象を明示して行う（例: `firebase deploy --only apphosting:yorimichi-stg`、`firebase deploy --only firestore:yorimichi-stg`）。`--only` なしの `firebase deploy` や `--only firestore:rules` は両環境に入るため使わない
+- Google の API・環境変数・秘密情報を追加・変更するときは [.agents/skills/env-and-api-change/SKILL.md](.agents/skills/env-and-api-change/SKILL.md) の手順に従う。API キーと Secret は stg と prod の両方に用意する
+- 有料のリソースや API の作成・有効化は、PR で提案して PM の承認を得てから行う（上の「レビュー必須条件」）
+- Firestore のルールは現在すべて拒否になっている。コレクションを読み書きする前に、`firestore.rules` にルールを追加する
+- Auth は stg と prod で共有している。stg で作ったアカウントは prod でもログインできる
+- ローカル（`NEXT_PUBLIC_APP_ENV=local`）の Firebase はエミュレータ専用。`firebase emulators:start --config firebase.emulator.json --project demo-yorimichi` で起動する
+
 ### 相談・連絡の場所
 
 - PRや設計の議論はGitHubで行う。
