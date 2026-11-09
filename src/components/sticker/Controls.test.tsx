@@ -13,7 +13,8 @@ describe("StickerButton", () => {
   it("danger バリアントは危険色で描かれる", () => {
     render(<StickerButton variant={ButtonVariant.Danger}>削除する</StickerButton>);
     const button = screen.getByRole("button", { name: "削除する" });
-    expect(button.className).toContain("bg-danger");
+    expect(button).toHaveClass("bg-danger", "text-fg-on-deep");
+    expect(button).not.toHaveClass("text-ink");
   });
 
   it("disabled はクリックを受け付けない", () => {
@@ -39,7 +40,8 @@ describe("TextField", () => {
 
   it("required を渡すと必須バッジと required 属性が付く", () => {
     render(<TextField id="f2" label="行き先" required />);
-    expect(screen.getByText("必須")).toBeInTheDocument();
+    expect(screen.getByText("必須")).toHaveClass("text-ink");
+    expect(screen.getByText("必須")).not.toHaveClass("text-danger");
     expect(screen.getByLabelText(/行き先/)).toBeRequired();
   });
 
@@ -109,5 +111,7 @@ describe("StickerCheckbox", () => {
       </StickerCheckbox>,
     );
     expect(screen.getByRole("checkbox", { name: "触れない" })).toBeDisabled();
+    expect(screen.getByText("触れない")).toHaveClass("text-fg-subtle");
+    expect(screen.getByText("触れない")).not.toHaveClass("text-ink");
   });
 });

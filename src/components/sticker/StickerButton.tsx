@@ -28,8 +28,8 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
 };
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  [ButtonVariant.Solid]: "",
-  [ButtonVariant.Plain]: "bg-surface-raised",
+  [ButtonVariant.Solid]: "text-ink",
+  [ButtonVariant.Plain]: "bg-surface-raised text-ink",
   [ButtonVariant.Danger]: "bg-danger text-fg-on-deep",
 };
 
@@ -45,12 +45,13 @@ export const StickerButton = ({
   <button
     type={type}
     className={cx(
-      "sticker-edge inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--radius-sticker) font-hand text-ink",
+      "sticker-edge inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--radius-sticker) font-hand",
       "transition-[transform,box-shadow] duration-150 ease-out",
       "hover:-translate-y-0.5 hover:shadow-sticker-lg active:translate-x-0.75 active:translate-y-0.75 active:shadow-pressed active:animate-jelly",
       "focus-visible:focus-ring",
       "disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-surface-disabled disabled:text-fg-subtle disabled:shadow-none disabled:hover:translate-y-0",
-      variant === ButtonVariant.Solid ? TONE_FILL[tone] : VARIANT_CLASS[variant],
+      VARIANT_CLASS[variant],
+      variant === ButtonVariant.Solid && TONE_FILL[tone],
       SIZE_CLASS[size],
       className,
     )}

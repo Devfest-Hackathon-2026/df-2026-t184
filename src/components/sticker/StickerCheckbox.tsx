@@ -38,6 +38,6 @@ export const StickerCheckbox = ({ checked, onChange, disabled, children, classNa
         <path d="M2.5 8.5l3.5 3.5 7-8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </span>
-    {children ? <span className={cx("font-note text-base text-ink", disabled && "text-fg-subtle")}>{children}</span> : null}
+    {children ? <span className={cx("font-note text-base", disabled ? "text-fg-subtle" : "text-ink")}>{children}</span> : null}
   </label>
 );

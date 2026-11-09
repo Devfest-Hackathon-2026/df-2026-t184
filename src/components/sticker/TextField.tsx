@@ -24,7 +24,7 @@ const FieldShell = ({ id, label, hint, error, required, children }: FieldShellPr
         {label}
       </label>
       {required ? (
-        <span className="rounded-full border border-danger bg-danger-surface px-1.5 font-hand text-[10px] leading-snug text-danger">
+        <span className="rounded-full border border-danger bg-danger-surface px-1.5 font-hand text-[10px] leading-snug text-ink">
           必須
         </span>
       ) : null}
