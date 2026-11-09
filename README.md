@@ -8,6 +8,9 @@ DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジ�
 - Firebase（Auth / Firestore / App Hosting）
 - Gemini API（`src/app/api/gemini/route.ts`、キーはサーバー側のみ）
 
+## 環境
+- stg / prod の構成・デプロイ方法は [docs/environments.md](docs/environments.md) を参照。
+
 ## セットアップ
 ```bash
 npm install
