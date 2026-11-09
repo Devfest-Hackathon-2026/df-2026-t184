@@ -16,11 +16,8 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:1031159186960:web:5a1c4dd734cfeb5405ec95
 
-  # 秘密は Cloud Secret Manager に置き、ここでは参照だけにする（値は書かない）。
-  - variable: GEMINI_API_KEY
-    secret: PROD_GEMINI_API_KEY
-    availability:
-      - RUNTIME
+  # Gemini は Vertex AI 経由で、実行用サービスアカウントの認証（ADC）で呼ぶ。API キーは使わない（D-003）。
+  # 呼び出し先のプロジェクトは apphosting.yaml の NEXT_PUBLIC_FIREBASE_PROJECT_ID を使う。
 
   # ブラウザに公開される値だが、リポジトリに書くと gitleaks に検出されるため
   # Secret Manager に置く。NEXT_PUBLIC_ はビルド時に埋め込まれるので BUILD も必要。

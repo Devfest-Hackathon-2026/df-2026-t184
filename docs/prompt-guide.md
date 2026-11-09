@@ -11,7 +11,7 @@
 2. 目的地・気分を選んで「寄り道ルートを作る」
 3. 保存すれば、次の生成から新しい指示になる
 
-※ `GEMINI_API_KEY` の設定はクマタニさんに頼む。キーは Discord や Git に貼らない。
+※ Gemini は Vertex AI 経由で呼ぶ。ローカルでは一度だけ `gcloud auth application-default login` を実行し、`.env.local` に `VERTEX_PROJECT_ID=df-2026-t184-prod` を入れる（`.env.example` を参照）。
 
 ## 試す入力
 - 上野公園 / 静けさ優先 / +20分

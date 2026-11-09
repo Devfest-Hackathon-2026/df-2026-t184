@@ -52,7 +52,7 @@ AI 開発セッション中の質問・回答・理由の記録は `docs/decisio
 
 ## D-002: 実行基盤（Firebase App Hosting 設定）
 
-- 観測事実: `apphosting.yaml`（cpu 1 / memoryMiB 512 / minInstances 0 / maxInstances 2、`GEMINI_API_KEY` は Secret Manager 参照）。Firebase 関連の設定一式（`firebase.json`・`firestore.rules`・エミュレータ設定）あり
+- 観測事実: `apphosting.yaml`（cpu 1 / memoryMiB 512 / minInstances 0 / maxInstances 2、Gemini は 2026-11-10 から Vertex AI を ADC で呼ぶため API キーの参照なし）。Firebase 関連の設定一式（`firebase.json`・`firestore.rules`・エミュレータ設定）あり
 - 正式決定: **PM 確認待ち**。設定ファイルの存在は必須実行基盤（`docs/HACKATHON.md`）の候補を満たすが、**実際のデプロイ・公開 URL の実動は未確認**（`docs/STATUS.md`）
 - 候補（大会必須の実行基盤から）:
 
@@ -62,11 +62,14 @@ AI 開発セッション中の質問・回答・理由の記録は `docs/decisio
 | Cloud Run | 大会指定の実行基盤の候補（特性は未調査） | 未検証 |
 | Firebase Hosting（静的） | 費用は要調査 | SSR/API ルートをそのままでは動かせない |
 
-## D-003: Gemini の呼び出し方式（API キー方式・現状）
+## D-003: Gemini の呼び出し方式（Vertex AI に決定）
 
-- 観測事実: `src/app/api/gemini/route.ts` は `https://generativelanguage.googleapis.com/v1beta/...:generateContent` を `x-goog-api-key`（`GEMINI_API_KEY`）で呼ぶ。**Gemini Developer API（API キー方式）であり、Vertex AI ではない**。モデル既定値 `gemini-2.5-flash`（`GEMINI_MODEL` で変更可）
-- 正式決定: **PM 確認待ち**
-- 注意: 転記元チームの方針は「Vertex AI 経由」（クレジットが AI Studio に適用されないため）。現行実装はそれと異なる方式であり、意図的な選択か未確認
+- 旧観測事実（2026-11-10 まで）: `src/app/api/gemini/route.ts` と `src/app/api/quests/route.ts` は `https://generativelanguage.googleapis.com/v1beta/...:generateContent` を `x-goog-api-key`（`GEMINI_API_KEY`）で呼んでいた（Gemini Developer API・API キー方式）
+- 正式決定（2026-11-10、本人の判断）: **B. Vertex AI** に切り替える。本人の発言「含まれていたはずなので、vertexの前提で一気に対応しましょうか」（配布された Google Cloud クレジットの対象に Vertex AI が含まれている、という本人の認識による。クレジットの対象サービスは AI が直接は確認していない）
+- 切り替えの経緯: API キー方式は請求が AI Studio の前払いクレジットで、残高 0 のため 402 Payment Required で全キーが止まっていた。Google Cloud のクレジット（クーポン）は AI Studio の Gemini API には適用されないと案内されている（https://ai.google.dev/gemini-api/docs/billing 、2026-11-10 参照）
+- 実装: `src/lib/vertex.ts`（呼び出し）と `src/lib/vertex-server.ts`（ADC のトークンと環境変数から作る）。プロジェクトは `VERTEX_PROJECT_ID` → `GOOGLE_CLOUD_PROJECT` → `NEXT_PUBLIC_FIREBASE_PROJECT_ID` の順、場所は `VERTEX_LOCATION`（既定 `global`）、モデルは `GEMINI_MODEL`（既定 `gemini-3.5-flash-lite`。`gemini-2.5-flash` は Vertex AI で 2026-10 に提供終了し、404 になることを確認した。後継の候補は `gemini-3.8-flash` と `gemini-3.5-flash-lite` で、クレジット節約のため安い flash-lite にした。https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions 、2026-11-10 参照）
+- 権限: stg・prod のランタイム SA に `roles/aiplatform.user` を付与（プロジェクト単位）
+- 捨てた案: A（API キー方式）はクレジットが使えず、前払いの実費が必要なため
 - 候補:
 
 | 案 | メリット | デメリット |

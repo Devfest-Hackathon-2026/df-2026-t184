@@ -8,13 +8,13 @@
 - 基盤: Next.js 16.4.5 / React 19.3.0 / TypeScript / Tailwind CSS v4（turbopack）
 - `src/app/page.tsx`: create-next-app の雛形のまま。**プロダクトの UI は main にない**
 - `src/app/api/gemini/route.ts`:
-  - `POST {prompt}` → `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` を `x-goog-api-key` ヘッダ（`GEMINI_API_KEY`）で呼ぶ
-  - **Gemini Developer API（API キー方式）で、Vertex AI ではない**
+  - `POST {prompt}` → Vertex AI の `generateContent` を、実行環境の認証（ADC）のアクセストークンで呼ぶ（`src/lib/vertex.ts`）
+  - 2026-11-10 に Gemini Developer API（API キー方式）から Vertex AI に切り替えた（D-003）
   - 認証・レート制限なし（コード内コメントも「本番では認証・レート制限を必ず付けること」と記述）
   - main の UI からこのエンドポイントを呼ぶコードは**存在しない**
 - `src/lib/firebase.ts`: クライアント SDK 初期化（Auth / Firestore）を export。**main 内で import しているコードはない**
 - `src/lib/firebase-admin.ts`: Admin SDK（`applicationDefault()`）で `adminDb` を export。**main 内で import しているコードはない**
-- `apphosting.yaml`: Firebase App Hosting 用の設定（runConfig: cpu 1 / 512MiB / min 0 / max 2、`GEMINI_API_KEY` は Secret Manager 参照）。**実際にデプロイ済みかはリポジトリからは確認できない**
+- `apphosting.yaml`: Firebase App Hosting 用の設定（runConfig: cpu 1 / 512MiB / min 0 / max 2、Gemini は Vertex AI を ADC で呼ぶため秘密は不要）。**実際にデプロイ済みかはリポジトリからは確認できない**
 - `firestore.rules`: 既定全拒否 + `users/{uid}` は本人のみ read/write
 - `firebase.json`: Firestore rules/indexes + Auth(9099)/Firestore(8080) エミュレータ設定
 - CI（`.github/workflows/ci.yml`）: lint + build（Firebase 系 env はダミー値）+ gitleaks

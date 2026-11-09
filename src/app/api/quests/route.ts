@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { buildQuestPrompt, QUEST_SYSTEM_INSTRUCTION } from "@/lib/prompts/quests";
 import { parseQuests } from "@/lib/quests";
+import { VertexAuthError } from "@/lib/vertex";
+import { vertexFromEnv } from "@/lib/vertex-server";
 
 // 気分・目的地・寄り道時間から、チェックポイント3つとクエストを Gemini で作る。
-// キーはサーバー側のみ。本番では認証・レート制限を付けること。
+// Vertex AI 経由で呼ぶ（認証は実行環境の ADC）。本番では認証・レート制限を付けること。
 
 // 気分と時間はインデックスで受け取り、文言はサーバー側で決める（クライアントの文字列を信用しない）。
 // 文言は src/components/YorimichiApp.tsx の MOODS と揃えること。
@@ -56,17 +58,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid input" }, { status: 400 });
   }
 
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    return NextResponse.json({ error: "GEMINI_API_KEY is not set" }, { status: 500 });
+  const vertex = vertexFromEnv();
+  if (!vertex) {
+    return NextResponse.json({ error: "Vertex AI のプロジェクトが設定されていません" }, { status: 500 });
   }
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
+    const res = await vertex.generateContent(
+      {
         systemInstruction: { parts: [{ text: QUEST_SYSTEM_INSTRUCTION }] },
         contents: [
           {
@@ -75,11 +74,11 @@ export async function POST(req: Request) {
           },
         ],
         generationConfig: { responseMimeType: "application/json", responseSchema: SCHEMA, temperature: 0.8 },
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
+      },
+      { signal: AbortSignal.timeout(20_000) },
+    );
     if (!res.ok) {
-      console.error("gemini error", res.status);
+      console.error("gemini error", res.status, (await res.text()).slice(0, 500));
       return NextResponse.json({ error: "Gemini request failed" }, { status: 502 });
     }
     const data = await res.json();
@@ -88,6 +87,10 @@ export async function POST(req: Request) {
     if (!quests) return NextResponse.json({ error: "unexpected output" }, { status: 502 });
     return NextResponse.json({ quests });
   } catch (e) {
+    if (e instanceof VertexAuthError) {
+      console.error(e.message, e.cause);
+      return NextResponse.json({ error: "Vertex AI の認証に失敗しました" }, { status: 500 });
+    }
     console.error("quests failed", e);
     return NextResponse.json({ error: "Gemini request failed" }, { status: 502 });
   }

@@ -82,7 +82,7 @@ Storybook の **Hypothesis/仮説モック WalkApp** に 2 つの story があ�
 
 ## 秘密情報のルール
 - `.env.local`、サービスアカウント鍵、API キーは**絶対にコミットしない**。`.env.example` には変数名だけ書く。
-- Gemini のキーは `GEMINI_API_KEY`（`NEXT_PUBLIC_` を付けない）。本番は Secret Manager に置く。
+- Gemini は Vertex AI 経由で、実行環境の認証（ADC）で呼ぶ。API キーは使わない。ローカルは `gcloud auth application-default login`。
 - `NEXT_PUBLIC_FIREBASE_*` は公開される設定値。守るのは Firestore ルールと Auth。
 - CI で gitleaks を回している。ローカルの pre-commit も有効。
 

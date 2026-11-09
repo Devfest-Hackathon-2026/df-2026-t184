@@ -60,7 +60,6 @@ App Hosting はロールアウト時にバックエンドの Environment name �
 
 | 変数名（アプリ側） | stg のシークレット | prod のシークレット |
 |---|---|---|
-| `GEMINI_API_KEY` | `STG_GEMINI_API_KEY` | `PROD_GEMINI_API_KEY` |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | `STG_GOOGLE_MAPS_API_KEY` | `PROD_GOOGLE_MAPS_API_KEY` |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | `STG_FIREBASE_API_KEY` | `PROD_FIREBASE_API_KEY` |
 
@@ -94,6 +93,9 @@ stg / prod で同じ Auth を共有するため、同じアカウントが両環
   スコープされて付与されている（`resource.name` 条件）。stg の SA は prod の
   DB を読み書きできない。
 - `roles/firebaseapphosting.computeRunner` を付与済み（App Hosting のビルド・実行用）。
+- `roles/aiplatform.user` を付与済み（Gemini を Vertex AI 経由で呼ぶため。D-003）。
+  プロジェクト単位の付与で、環境ごとには分けていない。Gemini の API キー
+  （`STG_/PROD_GEMINI_API_KEY`）はアプリから参照しなくなった。Secret Manager の値は残している。
 - admin SDK はセキュリティルールをバイパスするため、上記 IAM スコープが
   環境分離の実効的な境界になる。ルールと IAM の両方で fail closed にしている。
 
