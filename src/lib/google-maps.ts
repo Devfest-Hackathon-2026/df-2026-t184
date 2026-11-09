@@ -13,16 +13,23 @@ export function loadGoogleMaps(): Promise<void> {
   if (loading) return loading;
 
   loading = new Promise<void>((resolve, reject) => {
+    const fail = (msg: string) => {
+      loading = null;
+      reject(new Error(msg));
+    };
+    // API の準備ができたときに呼ばれる。script の onload だけでは importLibrary がまだ無いことがある
+    const cbName = "__gmapsReady";
+    (window as unknown as Record<string, unknown>)[cbName] = () => {
+      if (typeof window.google?.maps?.importLibrary === "function") resolve();
+      else fail("Google Maps の初期化に失敗しました（広告ブロッカー等が通信を止めている可能性）");
+    };
     const s = document.createElement("script");
-    const params = new URLSearchParams({ key: MAPS_API_KEY, v: "weekly", loading: "async", language: "ja", region: "JP" });
+    const params = new URLSearchParams({ key: MAPS_API_KEY, v: "weekly", loading: "async", language: "ja", region: "JP", callback: cbName });
     s.src = `https://maps.googleapis.com/maps/api/js?${params}`;
     s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => {
-      loading = null;
-      reject(new Error("Google Maps の読み込みに失敗しました"));
-    };
+    s.onerror = () => fail("Google Maps の読み込みに失敗しました");
     document.head.appendChild(s);
+    setTimeout(() => fail("Google Maps の読み込みがタイムアウトしました"), 15_000); // 解決済みなら無視される
   });
   return loading;
 }
