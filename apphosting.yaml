@@ -1,22 +1,22 @@
-# Firebase App Hosting 設定（Next.js をそのままデプロイ）
+# Firebase App Hosting の共通設定（全環境のフォールバック）。
+# バックエンドの Environment name に対応する apphosting.<env>.yaml
+# （apphosting.stg.yaml / apphosting.prod.yaml）の値がここにマージされ、
+# 同名のキー・変数は環境別ファイルが優先される。
+# runConfig はフィールドごと、env は変数名ごとにマージされる。
+
 runConfig:
   cpu: 1
   memoryMiB: 512
   minInstances: 0
-  # 費用と Gemini の呼び出し回数を抑えるため上限は小さくしておく
-  maxInstances: 2
+  # 環境名を持たないバックエンドが誤って作られてもコストを抑えるため小さめに。
+  maxInstances: 1
 
 env:
-  # 秘密は Cloud Secret Manager に置き、ここでは参照だけにする（値は書かない）。
-  - variable: GEMINI_API_KEY
-    secret: GEMINI_API_KEY
-    availability:
-      - RUNTIME
-
-  # Maps のキーはブラウザに公開される値だが、リポジトリに書くと gitleaks に検出されるため
-  # Secret Manager に置く。NEXT_PUBLIC_ はビルド時に埋め込まれるので BUILD も必要。
-  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    availability:
-      - BUILD
-      - RUNTIME
+  # 両環境で共通の Firebase 公開設定値（秘匿情報ではない）。
+  # Auth / プロジェクトは stg・prod で共有する。
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: df-2026-t184-prod
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: df-2026-t184-prod.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "1031159186960"

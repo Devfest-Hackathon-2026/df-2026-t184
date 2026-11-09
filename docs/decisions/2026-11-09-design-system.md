@@ -55,3 +55,9 @@
 - Dangerボタンとdisabledチェックボックスのラベルは文字色クラスを排他的にし、Tailwindの出力順に依存させない。必須バッジは濃い文字色に変更する。
 - 既存のVitestとStorybookビルドをCIの必須実行ステップへ追加する。
 - 回帰確認: 既存テストを強化して3件の失敗を確認してから修正。optionalの画面遷移や共有モックの挙動変更は今回に含めない。
+
+## main更新後の競合解消
+
+- PR #12がmainへ統合されたため、main 15bc0e8を取り込んだ。既存のPR更新依頼の範囲で実施。
+- main側のFirebase環境設定、Vitest 5.1.0、Node型定義を維持し、Storybook・React/jsdomテスト設定とCIステップを併存させた。lockfileは統合済みpackage.jsonから再生成した。
+- 検証: npm ci、55テスト、lint、Storybookビルド、CI同等のダミー環境変数でNextビルドが成功。
