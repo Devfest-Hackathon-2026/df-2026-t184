@@ -1,26 +1,199 @@
 @import "tailwindcss";
 
+/*
+ * ステッカー風デザインのトークン。ルールは docs/design/sticker.md を参照。
+ * 真っ黒は使わず、線・影・文字はすべて焦げ茶。影はぼかさず右下にずらす。
+ */
+@theme {
+  /*
+   * プリミティブトークン — 生の色・値の置き場。
+   * コンポーネントはここを直接参照せず、下のセマンティックトークン経由で使う。
+   * パステルは「淡い(面) / 濃い(印・線)」のペア。-ink は文字・図示に耐える最深段。
+   */
+  --color-ink: #4a3426;
+  --color-ink-soft: #7a5d49;
+  --color-paper: #fff8ea;
+  --color-paper-line: #f1e3c8;
+  --color-kraft: #d2ad80;
+  --color-kraft-deep: #b48a5c;
+  --color-sticker: #fffdf7;
+
+  --color-pink: #ffd9e4;
+  --color-pink-deep: #ee86a6;
+  --color-mint: #cff2df;
+  --color-mint-deep: #48b98a;
+  --color-sky: #d6ecfb;
+  --color-sky-deep: #5ba6dc;
+  --color-lemon: #fff1b0;
+  --color-lemon-deep: #eabf3a;
+  --color-coral: #ffdccc;
+  --color-coral-deep: #ef8a5d;
+  --color-lilac: #e8ddfb;
+  --color-lilac-deep: #9a83dd;
+
+  /* コントラストを担保する最深段（sky の補強・coral の文字色） */
+  --color-sky-ink: #2b6ea6;
+  --color-coral-ink: #c24914;
+
+  /*
+   * セマンティックトークン — 役割の名前。プリミティブを参照する。
+   * 新しい部品・画面では原則こちらだけを使う。
+   */
+  --color-fg: var(--color-ink);
+  --color-fg-subtle: var(--color-ink-soft);
+  --color-fg-on-deep: var(--color-sticker);
+  --color-canvas: var(--color-kraft);
+  --color-surface: var(--color-paper);
+  --color-surface-raised: var(--color-sticker);
+  --color-surface-disabled: var(--color-paper-line);
+  --color-border: var(--color-ink);
+  --color-border-subtle: var(--color-ink-soft);
+  --color-focus: var(--color-sky-ink);
+  --color-danger: var(--color-coral-ink);
+  --color-danger-surface: var(--color-coral);
+  --color-overlay: rgb(74 52 38 / 0.16);
+  --color-scrim: rgb(74 52 38 / 0.5);
+
+  /* 方眼の1マス。gap-grid / p-grid / m-grid などで使う */
+  --spacing-grid: 22px;
+
+  --font-hand: var(--font-hand-face, "Hachi Maru Pop"), "Hiragino Maru Gothic ProN", sans-serif;
+  --font-note: var(--font-note-face, "Yomogi"), "Hiragino Maru Gothic ProN", sans-serif;
+
+  --shadow-sticker-sm: 3px 3px 0 var(--color-ink);
+  --shadow-sticker: 4px 4px 0 var(--color-ink);
+  --shadow-sticker-lg: 5px 5px 0 var(--color-ink);
+  --shadow-pressed: 1px 1px 0 var(--color-ink);
+
+  --radius-sticker: 18px;
+  --radius-chip: 14px;
+
+  --tilt-left: -0.8deg;
+  --tilt-right: 1deg;
+  --tilt-slight: -0.5deg;
+  --tilt-cell: 2deg;
+  --tilt-mascot: 8deg;
+  --tilt-stamp: -12deg;
+
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-jelly: jelly 420ms var(--ease-pop);
+  --animate-pop-in: pop-in 360ms var(--ease-pop);
+  --animate-needle-wiggle: needle-wiggle 2.4s ease-in-out infinite;
+  --animate-needle-spin: needle-spin 1.6s linear infinite;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper-grid: 22px;
+  --paper-noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .29 0 0 0 0 .2 0 0 0 0 .15 0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/*
+ * ステッカー世界観の地色・手書きフォントはモックの外枠（PaperScreen）だけに
+ * スコープする。body に書くと prompt-lab などモック以外の画面にも漏れるため。
+ * 外の地（クラフト紙）は PaperScreen の kraft が担う。
+ */
+.sticker-app {
+  color: var(--color-fg);
+  font-family: var(--font-note);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 日本語の見出しやせりふは、文節の切れ目で折り返す */
+@layer base {
+  h1,
+  h2,
+  h3,
+  .font-hand {
+    word-break: auto-phrase;
+    text-wrap-style: balance;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+::selection {
+  background: var(--color-lemon);
+  color: var(--color-ink);
+}
+
+/* 方眼の紙にうっすらノイズを重ねた地 */
+@utility paper {
+  background-color: var(--color-paper);
+  background-image:
+    var(--paper-noise),
+    linear-gradient(var(--color-paper-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-paper-line) 1px, transparent 1px);
+  background-size: 140px 140px, var(--paper-grid) var(--paper-grid), var(--paper-grid) var(--paper-grid);
+}
+
+/* クラフト紙の外枠 */
+@utility kraft {
+  background-color: var(--color-kraft);
+  background-image: var(--paper-noise);
+  background-size: 140px 140px;
+}
+
+/* 焦げ茶の縁取り＋ぼかさない影で、切って貼った紙にする */
+@utility sticker-edge {
+  border: 2.5px solid var(--color-ink);
+  box-shadow: var(--shadow-sticker);
+}
+
+/* マスキングテープの両端のギザギザ */
+@utility tape-edge {
+  clip-path: polygon(0 8%, 4% 0, 8% 10%, 12% 0, 100% 0, 96% 12%, 100% 24%, 96% 40%, 100% 56%, 96% 72%, 100% 88%, 96% 100%, 0 100%, 4% 88%, 0 74%, 4% 58%, 0 42%, 4% 26%);
+}
+
+/* ハンコのかすれ */
+@utility ink-worn {
+  mask-image: var(--paper-noise), linear-gradient(#000, #000);
+}
+
+/* 白フチのステッカー */
+@utility sticker-fringe {
+  filter: drop-shadow(0 0 0 var(--color-sticker)) drop-shadow(2.5px 0 0 var(--color-sticker))
+    drop-shadow(-2.5px 0 0 var(--color-sticker)) drop-shadow(0 2.5px 0 var(--color-sticker))
+    drop-shadow(0 -2.5px 0 var(--color-sticker)) drop-shadow(3px 3px 0 var(--color-ink));
+}
+
+/*
+ * フォーカスインジケータ。白フチを残してから太めの輪郭を描く（smarthr-ui の
+ * focusIndicatorStyles をステッカー表現に翻訳したもの）。
+ * 対象: focus-visible。色は --color-focus で紙面とのコントラストを確保する。
+ */
+@utility focus-ring {
+  isolation: isolate;
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 1.5px var(--color-sticker);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes jelly {
+  0% { scale: 1 1; }
+  30% { scale: 1.08 0.92; }
+  55% { scale: 0.96 1.04; }
+  80% { scale: 1.02 0.98; }
+  100% { scale: 1 1; }
+}
+
+@keyframes pop-in {
+  0% { scale: 0.6; opacity: 0; }
+  100% { scale: 1; opacity: 1; }
+}
+
+@keyframes needle-wiggle {
+  0%, 100% { rotate: -6deg; }
+  50% { rotate: 6deg; }
+}
+
+@keyframes needle-spin {
+  to { rotate: 360deg; }
 }

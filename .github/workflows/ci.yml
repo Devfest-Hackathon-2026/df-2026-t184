@@ -20,6 +20,7 @@ jobs:
       - run: python3 scripts/test-deploy.py
       - run: bash scripts/test-branch-delete.sh
       - run: npm test
+      - run: npm run build-storybook
       - run: npm run build
         env:
           NEXT_PUBLIC_APP_ENV: stg
