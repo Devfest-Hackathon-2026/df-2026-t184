@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { loadGoogleMaps } from "@/lib/google-maps";
+import { loadGoogleMaps, onMapsAuthFailure } from "@/lib/google-maps";
 
 type LatLng = google.maps.LatLngLiteral;
 
@@ -112,6 +112,10 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
   useEffect(() => {
     let cancelled = false;
     let ro: ResizeObserver | undefined;
+    // キーの認証失敗は読み込みエラーにならず、地図が灰色のまま残るので、別の合図で拾う。
+    const offAuthFailure = onMapsAuthFailure(() => {
+      if (!cancelled) onError();
+    });
     (async () => {
       try {
         await loadGoogleMaps();
@@ -209,6 +213,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
     })();
     return () => {
       cancelled = true;
+      offAuthFailure();
       ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -33,3 +33,29 @@ export function loadGoogleMaps(): Promise<void> {
   });
   return loading;
 }
+
+// キーのリファラー制限などで認証に失敗すると、Google Maps は読み込み自体は成功させたまま
+// 決まった名前のグローバル関数 window.gm_authFailure を呼ぶだけで知らせる。
+// それを拾って、地図の利用側が手描きの地図などに切り替えられるようにする。
+type AuthFailureWindow = Window & { gm_authFailure?: () => void };
+
+const authFailureListeners = new Set<() => void>();
+let authFailed = false;
+
+/** 地図のキーの認証失敗を受け取る。すでに失敗していればすぐ呼ぶ。戻り値で登録を解除する。 */
+export function onMapsAuthFailure(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  if (authFailed) {
+    listener();
+    return () => {};
+  }
+  (window as AuthFailureWindow).gm_authFailure = () => {
+    authFailed = true;
+    for (const l of [...authFailureListeners]) l();
+    authFailureListeners.clear();
+  };
+  authFailureListeners.add(listener);
+  return () => {
+    authFailureListeners.delete(listener);
+  };
+}
