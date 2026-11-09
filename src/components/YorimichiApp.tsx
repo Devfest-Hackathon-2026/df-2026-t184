@@ -116,6 +116,7 @@ export default function YorimichiApp() {
   const [memos, setMemos] = useState(["", "", ""]);
   const [shared, setShared] = useState(false);
   const [aiQuests, setAiQuests] = useState<Quest[] | null>(null);
+  const [order, setOrder] = useState<number[] | null>(null);
   const [aiFailed, setAiFailed] = useState(false);
   const runRef = useRef(0);
   const [mapFailed, setMapFailed] = useState(false);
@@ -133,7 +134,9 @@ export default function YorimichiApp() {
   const M = MOODS[mood];
   const qi = Math.min(step, 2);
   // Gemini の結果があればそれを使い、なければサンプル。写真ダミーの色は気分ごとのサンプルから借りる
-  const quests = aiQuests ? aiQuests.map((a, i) => ({ ...a, color: M.quests[i].color })) : M.quests;
+  // 地図が出発地から目的地へ向かう順に並べ替えた順番（order）があれば、クエストも同じ順にする
+  const ordered = aiQuests && order && order.length === aiQuests.length ? order.map((i) => aiQuests[i]) : aiQuests;
+  const quests = ordered ? ordered.map((a, i) => ({ ...a, color: M.quests[i].color })) : M.quests;
   const q = quests[qi];
   const extraMin = EXTRA[budget];
   const dot = (i: number) => (step > i ? C.teal : step === i ? C.amber : C.gray);
@@ -147,6 +150,7 @@ export default function YorimichiApp() {
     setShared(false);
     clearInterval(timers.current.iv);
     setAiQuests(null);
+    setOrder(null);
     setAiFailed(false);
     const runId = ++runRef.current;
 
@@ -375,7 +379,7 @@ export default function YorimichiApp() {
         {screen === "route" && (
           <div style={{ height: "100%", position: "relative", background: C.map }}>
             {useRealMap ? (
-              <RouteMap dest={dest} places={aiQuests ? aiQuests.map((a) => a.cp) : undefined} step={step} onError={() => setMapFailed(true)} />
+              <RouteMap dest={dest} places={aiQuests ? aiQuests.map((a) => a.cp) : undefined} step={step} onOrder={setOrder} onError={() => setMapFailed(true)} />
             ) : (
             <svg width="390" height="540" viewBox="0 0 390 540" style={{ position: "absolute", left: 0, top: 0 }} role="img" aria-label="混雑エリアを避けた寄り道ルートと最短ルートを重ねた地図">
               <rect width="390" height="540" fill={C.map} />

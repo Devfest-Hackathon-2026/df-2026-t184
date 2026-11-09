@@ -54,10 +54,21 @@ type Props = {
   dest: string;
   places?: string[]; // チェックポイント名（Gemini の提案）。地名検索で座標にする
   step: number; // 0..3（達成済みチェックポイント数）
+  onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
   onError: () => void;
 };
 
-export default function RouteMap({ dest, places, step, onError }: Props) {
+// 出発地→目的地の線の上で、どれくらい進んだ位置か（0=出発地、1=目的地）
+function progress(a: LatLng, b: LatLng, p: LatLng): number {
+  const dx = b.lng - a.lng;
+  const dy = b.lat - a.lat;
+  const len2 = dx * dx + dy * dy;
+  return len2 === 0 ? 0 : ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / len2;
+}
+
+export default function RouteMap({ dest, places, step, onOrder, onError }: Props) {
+  const onOrderRef = useRef(onOrder);
+  onOrderRef.current = onOrder;
   const placesKey = places?.join("|") ?? "";
   const el = useRef<HTMLDivElement>(null);
   const markers = useRef<{ cps: google.maps.marker.PinElement[]; me?: google.maps.marker.AdvancedMarkerElement; path: LatLng[] }>({ cps: [], path: [] });
@@ -82,10 +93,14 @@ export default function RouteMap({ dest, places, step, onError }: Props) {
           ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`)))
           : [];
         if (cancelled || !el.current) return;
-        const cps = fallback.map((f, i) => {
+        const found3 = fallback.map((f, i) => {
           const g = found[i];
           return g && distKm(g, goal) < 5 ? g : f;
         });
+        // 行ったり来たりしないよう、出発地から目的地へ向かう順に並べる（クエストの順番も呼び出し側で揃える）
+        const order = found3.map((_, i) => i).sort((x, y) => progress(start, goal, found3[x]) - progress(start, goal, found3[y]));
+        const cps = order.map((i) => found3[i]);
+        onOrderRef.current?.(order);
         const path = [start, ...cps, goal];
         markers.current.path = path;
 
