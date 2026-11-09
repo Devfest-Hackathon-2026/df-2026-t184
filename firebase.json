@@ -21,7 +21,11 @@
         ".next",
         "firebase-debug.log",
         "firebase-debug.*.log",
-        "storybook-static"
+        "storybook-static",
+        ".env",
+        ".env*",
+        "**/.env",
+        "**/.env*"
       ]
     },
     {
@@ -33,13 +37,23 @@
         ".next",
         "firebase-debug.log",
         "firebase-debug.*.log",
-        "storybook-static"
+        "storybook-static",
+        ".env",
+        ".env*",
+        "**/.env",
+        "**/.env*"
       ]
     }
   ],
   "emulators": {
-    "auth": { "port": 9099 },
-    "firestore": { "port": 8080 },
-    "ui": { "enabled": true }
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    }
   }
 }

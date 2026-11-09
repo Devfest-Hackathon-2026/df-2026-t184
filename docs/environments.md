@@ -34,6 +34,8 @@ stg と prod の 2 環境を同居させている。Auth は環境間で共有�
 - `NEXT_PUBLIC_APP_ENV` の値が `stg`/`prod`/`local` 以外なら常にエラー。
 
 これらは `src/lib/env.test.ts` でテスト済み（`npm test`）。
+検査は Firebase モジュールを読み込んだ時に実行される。現在の画面・APIはまだこの
+モジュールを利用していないため、アプリ全体の起動時検査やDB接続の実機検証は未実施。
 
 ## 設定ファイルの対応
 
@@ -89,7 +91,7 @@ stg / prod で同じ Auth を共有するため、同じアカウントが両環
 - ランタイム SA には `roles/datastore.user` が「自分の環境の DB のみ」に
   スコープされて付与されている（`resource.name` 条件）。stg の SA は prod の
   DB を読み書きできない。
-- `roles/run.computeRunner` 相当の Cloud Run 実行権限も付与済み。
+- `roles/firebaseapphosting.computeRunner` を付与済み（App Hosting のビルド・実行用）。
 - admin SDK はセキュリティルールをバイパスするため、上記 IAM スコープが
   環境分離の実効的な境界になる。ルールと IAM の両方で fail closed にしている。
 
