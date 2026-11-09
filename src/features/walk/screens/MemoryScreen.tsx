@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ButtonSize, ButtonVariant, IconName, IconSticker, ScreenHeading, StickerButton, Toast } from "@/components/sticker";
 
 import { MemoryCard } from "../components/MemoryCard";
-import { moodById } from "../content";
+import { moodById, questsOf } from "../content";
 import { eta, type WalkAction, type WalkState } from "../flow";
 
 const SHARE_ICON_SIZE = 28;
@@ -45,6 +45,7 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
       <MemoryCard
         dest={state.dest}
         mood={moodById(state.mood)}
+        quests={questsOf(state)}
         shots={state.shots}
         memos={state.memos}
         extraMinutes={eta(state.budget).extra}

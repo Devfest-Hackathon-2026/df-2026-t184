@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { eta, initialWalk, LOADING_STAGES, MoodId, Screen, walkReducer, type WalkAction, type WalkState } from "./flow";
+import { moodById, questsOf, type Quest } from "./content";
+import { eta, initialWalk, LOADING_STAGES, MoodId, QuestSource, Screen, walkReducer, type WalkAction, type WalkState } from "./flow";
 
 const run = (actions: WalkAction[], from: WalkState = initialWalk): WalkState =>
   actions.reduce(walkReducer, from);
@@ -24,10 +25,28 @@ describe("walkReducer", () => {
     expect(s.stage).toBe(0);
   });
 
-  it("探索の段階をすべて終えるとルート画面になる", () => {
-    const steps = Array.from({ length: LOADING_STAGES.length }, () => ({ type: "advanceStage" as const }));
-    const s = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, ...steps]);
+  it("探索の段階をすべて終え、クエストも届くとルート画面になる", () => {
+    const s = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, ...allStages, received(AI_QUESTS)]);
     expect(s.screen).toBe(Screen.Route);
+  });
+
+  it("段階を終えてもクエストが届くまでは探索中のまま、最後の段階で待つ", () => {
+    const s = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, ...allStages, ...allStages]);
+    expect(s.screen).toBe(Screen.Loading);
+    expect(s.stage).toBe(LOADING_STAGES.length);
+  });
+
+  it("クエストが先に届いても、段階の演出を終えるまではルート画面にしない", () => {
+    const s = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, received(AI_QUESTS), { type: "advanceStage" }]);
+    expect(s.screen).toBe(Screen.Loading);
+    expect(run(allStages.slice(1), s).screen).toBe(Screen.Route);
+  });
+
+  it("探索をやり直すと、前のクエストは捨てて新しい結果を待つ", () => {
+    const routed = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, ...allStages, received(AI_QUESTS)]);
+    const s = run([{ type: "backToInput" }, { type: "start" }, ...allStages], routed);
+    expect(s.screen).toBe(Screen.Loading);
+    expect(s.plan).toBeNull();
   });
 
   it("見つけたを 3 回押すと思い出カードになる", () => {
@@ -84,5 +103,25 @@ describe("walkReducer", () => {
     };
     const s = run([{ type: "restart" }], done);
     expect(s).toEqual({ ...initialWalk, dest: "上野公園", mood: MoodId.Retro });
+  });
+});
+
+const AI_QUESTS: readonly Quest[] = moodById(MoodId.Quiet).quests.map((q, i) => ({ ...q, checkpoint: `AIの地点${i + 1}` }));
+const allStages: WalkAction[] = Array.from({ length: LOADING_STAGES.length }, () => ({ type: "advanceStage" as const }));
+const received = (quests: readonly Quest[], source = QuestSource.Ai): WalkAction => ({ type: "receivePlan", plan: { source, quests } });
+
+describe("questsOf", () => {
+  it("クエストが届く前は、選んだ気分の見本を使う", () => {
+    expect(questsOf({ ...initialWalk, mood: MoodId.Retro })).toEqual(moodById(MoodId.Retro).quests);
+  });
+
+  it("届いたクエストを、地図が決めた出発地からの順に並べる", () => {
+    const s = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, received(AI_QUESTS), { type: "reorder", order: [2, 0, 1] }]);
+    expect(questsOf(s).map((q) => q.checkpoint)).toEqual(["AIの地点3", "AIの地点1", "AIの地点2"]);
+  });
+
+  it("地点の数と合わない並び順は使わない", () => {
+    const s = run([{ type: "setDest", dest: "上野公園" }, { type: "start" }, received(AI_QUESTS), { type: "reorder", order: [1, 0] }]);
+    expect(questsOf(s).map((q) => q.checkpoint)).toEqual(["AIの地点1", "AIの地点2", "AIの地点3"]);
   });
 });

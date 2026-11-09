@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { initialWalk, Screen } from "./flow";
 import { WalkApp } from "./WalkApp";
+import { answerQuestionsAndStart } from "./testing";
 
 afterEach(() => cleanup());
 
@@ -24,7 +25,7 @@ describe("画面遷移のフォーカス", () => {
       render(<WalkApp initial={{ ...initialWalk, dest: "上野公園" }} />);
       expect(document.activeElement).toBe(screen.getByRole("heading", { name: INPUT_HEADING }));
 
-      fireEvent.click(screen.getByRole("button", { name: "寄り道ルートを作る" }));
+      answerQuestionsAndStart();
       expect(document.activeElement).toBe(screen.getByRole("heading", { name: "ルートを探しています" }));
 
       for (let stage = 0; stage < 4; stage++) {

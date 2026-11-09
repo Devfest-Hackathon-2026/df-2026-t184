@@ -5,6 +5,7 @@ import { initialWalk, Screen } from "../flow";
 import { WalkApp } from "../WalkApp";
 import { HypothesisFrame } from "./HypothesisFrame";
 import { MOCK_DATA_NOTICE, SCENARIOS } from "./scenarios";
+import { answerQuestionsAndStart } from "../testing";
 
 afterEach(() => cleanup());
 
@@ -61,7 +62,7 @@ describe("仮説モックの一連の体験", () => {
     vi.useFakeTimers();
     try {
       render(<WalkApp initial={{ ...initialWalk, dest: scenario.dest }} />);
-      fireEvent.click(screen.getByRole("button", { name: "寄り道ルートを作る" }));
+      answerQuestionsAndStart();
       for (let stage = 0; stage < 4; stage++) {
         act(() => vi.advanceTimersByTime(700));
       }
@@ -71,7 +72,7 @@ describe("仮説モックの一連の体験", () => {
       fireEvent.click(screen.getByRole("button", { name: "見つけた" }));
       fireEvent.click(screen.getByRole("button", { name: "見つけた" }));
       fireEvent.click(screen.getByRole("button", { name: "ともだちの寄り道を見る" }));
-      expect(screen.getByRole("heading", { name: "ともだちの寄り道" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "みんなの寄り道" })).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "思い出カードに戻る" }));
       fireEvent.click(screen.getByRole("button", { name: "もう一度歩く" }));
       expect(screen.getByLabelText("行き先")).toHaveValue(scenario.dest);

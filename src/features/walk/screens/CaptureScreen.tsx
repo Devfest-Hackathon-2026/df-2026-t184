@@ -1,7 +1,7 @@
 import { ButtonSize, IconName, IconSticker, ScreenHeading, StickerButton, StickerCard, TextAreaField } from "@/components/sticker";
 
 import { PhotoSlot } from "../components/PhotoSlot";
-import { moodById } from "../content";
+import { questsOf } from "../content";
 import { CHECKPOINTS, type WalkAction, type WalkState } from "../flow";
 
 const BACK_ICON_SIZE = 44;
@@ -12,7 +12,7 @@ type CaptureScreenProps = { state: WalkState; dispatch: (a: WalkAction) => void 
 /** チェックポイントで写真とひとことを残す画面。 */
 export const CaptureScreen = ({ state, dispatch }: CaptureScreenProps): React.ReactElement => {
   const index = Math.min(state.step, CHECKPOINTS - 1);
-  const quest = moodById(state.mood).quests[index];
+  const quest = questsOf(state)[index];
   const taken = state.shots[index] ?? false;
   return (
     <div className="flex flex-col gap-5 p-5">

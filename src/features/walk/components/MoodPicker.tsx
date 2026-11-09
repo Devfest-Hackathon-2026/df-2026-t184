@@ -13,7 +13,7 @@ const CHECK_SIZE = 28;
 /** 今の気分を 3 つの選択肢から 1 つ選ぶ。 */
 export const MoodPicker = ({ value, onChange }: MoodPickerProps): React.ReactElement => (
   <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-    <legend className="float-left w-full p-0 pb-2 font-hand text-sm text-ink">今の気分</legend>
+    <legend className="sr-only">今の気分</legend>
     <div className="flex flex-col gap-3">
       {MOODS.map((mood) => {
         const checked = mood.id === value;

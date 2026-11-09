@@ -1,8 +1,9 @@
 import { ScreenHeading } from "@/components/sticker";
 
+import { BotSays } from "../components/GuideBot";
 import { LoadingStages } from "../components/LoadingStages";
 import { moodById } from "../content";
-import type { WalkState } from "../flow";
+import { LOADING_STAGES, type WalkState } from "../flow";
 
 type LoadingScreenProps = {
   state: WalkState;
@@ -22,6 +23,7 @@ export const LoadingScreen = ({ state }: LoadingScreenProps): React.ReactElement
         </p>
       </div>
       <LoadingStages stage={state.stage} />
+      <BotSays text={`${LOADING_STAGES[Math.min(state.stage, LOADING_STAGES.length - 1)].label}ところ…`} className="w-full" />
     </div>
   );
 };

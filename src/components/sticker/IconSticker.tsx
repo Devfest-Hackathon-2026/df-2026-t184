@@ -8,6 +8,7 @@ export enum IconName {
   Check = "check",
   Heart = "heart",
   Walk = "walk",
+  Comment = "comment",
 }
 
 type IconStickerProps = {
@@ -44,6 +45,7 @@ const ICON_PATHS: Record<IconName, React.ReactElement> = {
   ),
   [IconName.Check]: <path d="M9 16.5 l4.5 4.5 l9.5 -10" />,
   [IconName.Heart]: <path d="M16 25 C8 19.5 6.5 14.5 9.5 11.5 c2.5 -2.5 5.3 -1 6.5 1.3 c1.2 -2.3 4 -3.8 6.5 -1.3 c3 3 1.5 8 -6.5 13.5 z" />,
+  [IconName.Comment]: <path d="M8 9 h16 a2 2 0 0 1 2 2 v9 a2 2 0 0 1 -2 2 h-9 l-5 4 v-4 h-2 a2 2 0 0 1 -2 -2 v-9 a2 2 0 0 1 2 -2 z" />,
   [IconName.Walk]: (
     <>
       <circle cx="17" cy="7.5" r="2" />

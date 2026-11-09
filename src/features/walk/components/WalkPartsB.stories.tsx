@@ -34,7 +34,7 @@ export const PhotoSlotTaken: Story = { render: () => <PhotoSlotDemo initiallyTak
 export const Memory: Story = {
   render: () => (
     <div className="w-88">
-      <MemoryCard dest="上野公園" mood={QUIET} shots={SAMPLE_SHOTS} memos={SAMPLE_MEMOS} extraMinutes={SAMPLE_EXTRA_MINUTES} walkedOn="2026年11月5日" />
+      <MemoryCard dest="上野公園" mood={QUIET} quests={QUIET.quests} shots={SAMPLE_SHOTS} memos={SAMPLE_MEMOS} extraMinutes={SAMPLE_EXTRA_MINUTES} walkedOn="2026年11月5日" />
     </div>
   ),
 };

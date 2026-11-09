@@ -1,12 +1,14 @@
 import { ButtonSize, ButtonVariant, cx, IconName, IconSticker, StickerButton, StickerCard, TONE_FILL, Tone } from "@/components/sticker";
 
-import type { Quest } from "../content";
-import { CHECKPOINTS } from "../flow";
+import { MOODS, type Quest } from "../content";
+import { CHECKPOINTS, type MoodId } from "../flow";
 
 type QuestSheetProps = {
   quest: Quest;
   /** いま向かっている地点（0 始まり）。 */
   step: number;
+  /** 点数のうち、選んだ気分の欄を強調する。 */
+  mood?: MoodId;
   onCapture: () => void;
   onFound: () => void;
   className?: string;
@@ -17,6 +19,7 @@ const ORDERS: readonly number[] = [...Array(CHECKPOINTS).keys()];
 const PROGRESS_SIZE = 28;
 const PIN_SIZE = 24;
 const CAMERA_SIZE = 28;
+const SCORE_LABELS = ["静けさ", "レトロ度", "ローカル感"] as const;
 
 /** 3 地点のうち、どこまで来たかを小さな丸で並べる。 */
 const Progress = ({ done }: { done: number }): React.ReactElement => (
@@ -40,7 +43,28 @@ const Progress = ({ done }: { done: number }): React.ReactElement => (
 );
 
 /** 地図の下から差し込む、いまの地点のクエストカード。 */
-export const QuestSheet = ({ quest, step, onCapture, onFound, className }: QuestSheetProps): React.ReactElement => {
+/** 静けさ・レトロ度・ローカル感の点数。選んだ気分の欄に色を付ける。 */
+const Scores = ({ scores, mood }: { scores: readonly [number, number, number]; mood?: MoodId }): React.ReactElement => {
+  const highlighted = MOODS.findIndex((m) => m.id === mood);
+  return (
+    <dl className="grid grid-cols-3 gap-2">
+      {SCORE_LABELS.map((label, i) => (
+        <div
+          key={label}
+          className={cx(
+            "flex flex-col rounded-(--radius-chip) border px-3 py-1",
+            i === highlighted ? cx("border-line", TONE_FILL[MOODS[i].tone]) : "border-dashed border-line",
+          )}
+        >
+          <dt className="font-note text-xs text-ink-soft">{label}</dt>
+          <dd className="font-hand text-xl text-ink">{scores[i]}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
+export const QuestSheet = ({ quest, step, mood, onCapture, onFound, className }: QuestSheetProps): React.ReactElement => {
   const index = Math.min(step, LAST_INDEX);
   const done = Math.min(step, CHECKPOINTS);
   return (
@@ -60,6 +84,7 @@ export const QuestSheet = ({ quest, step, onCapture, onFound, className }: Quest
         <h3 className="font-hand text-xs text-ink">なぜこの道？</h3>
         <p className="font-note text-sm leading-relaxed text-ink">{quest.why}</p>
       </div>
+      {quest.scores ? <Scores scores={quest.scores} mood={mood} /> : null}
       <div className="grid grid-cols-2 gap-3 pt-1">
         <StickerButton variant={ButtonVariant.Plain} size={ButtonSize.Lg} onClick={onCapture}>
           <IconSticker name={IconName.Camera} tone={Tone.Sky} size={CAMERA_SIZE} />

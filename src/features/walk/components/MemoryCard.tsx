@@ -1,6 +1,6 @@
 import { cx, StickerCard, Stamp, TONE_FILL } from "@/components/sticker";
 
-import type { Mood } from "../content";
+import type { Mood, Quest } from "../content";
 import { CHECKPOINTS, type WalkState } from "../flow";
 import { PhotoArt } from "./PhotoSlot";
 import { MapVariant, RouteMap } from "./RouteMap";
@@ -9,12 +9,13 @@ const CHIP_CLASS = "rounded-(--radius-chip) border border-line px-3 py-1 font-ha
 
 type MemoryCardProps = Pick<WalkState, "dest" | "shots" | "memos"> & {
   mood: Mood;
+  quests: readonly Quest[];
   extraMinutes: number;
   walkedOn: string;
 };
 
 /** 共有する思い出カード。写真の帯、Gemini の文章、地点ごとのメモ、達成のハンコを 1 枚にまとめる。 */
-export const MemoryCard = ({ dest, mood, shots, memos, extraMinutes, walkedOn }: MemoryCardProps): React.ReactElement => (
+export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, walkedOn }: MemoryCardProps): React.ReactElement => (
   <StickerCard className="flex flex-col gap-4 pt-8">
 
     <header className="flex items-start justify-between gap-3">
@@ -28,7 +29,7 @@ export const MemoryCard = ({ dest, mood, shots, memos, extraMinutes, walkedOn }:
     </header>
 
     <ul className="grid grid-cols-3 gap-3 px-1">
-      {mood.quests.map((quest, i) => (
+      {quests.map((quest, i) => (
         <li
           key={quest.checkpoint}
           className="border border-line bg-sticker p-1 pb-2 shadow-sticker-sm"
@@ -48,7 +49,7 @@ export const MemoryCard = ({ dest, mood, shots, memos, extraMinutes, walkedOn }:
     <p className="font-note text-base leading-loose text-ink">{mood.essay}</p>
 
     <dl className="flex flex-col gap-2 rounded-(--radius-chip) border border-dashed border-line p-3">
-      {mood.quests.map((quest, i) => (
+      {quests.map((quest, i) => (
         <div key={quest.checkpoint} className="flex flex-col">
           <dt className={cx("self-start rounded-sm px-1 font-hand text-sm text-ink", TONE_FILL[quest.tone])}>{quest.checkpoint}</dt>
           <dd className={cx("pl-1 font-note text-sm leading-relaxed", memos[i] ? "text-ink" : "text-ink-soft")}>{memos[i] || "メモなし"}</dd>

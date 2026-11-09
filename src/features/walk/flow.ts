@@ -1,3 +1,5 @@
+import type { Quest } from "./content";
+
 export enum MoodId {
   Quiet = "quiet",
   Retro = "retro",
@@ -11,6 +13,15 @@ export enum Screen {
   Capture = "capture",
   Memory = "memory",
 }
+
+export enum QuestSource {
+  Sample = "sample",
+  Ai = "ai",
+  /** AI が失敗したので見本で代わりにした。画面で知らせる。 */
+  Fallback = "fallback",
+}
+
+export type QuestPlan = { source: QuestSource; quests: readonly Quest[] };
 
 export type Budget = 10 | 20 | 30;
 export const BUDGETS: readonly Budget[] = [10, 20, 30];
@@ -35,6 +46,10 @@ export type WalkState = {
   step: number;
   shots: boolean[];
   memos: string[];
+  /** このルートのクエスト。null の間は探索の結果待ち。 */
+  plan: QuestPlan | null;
+  /** 地図が出発地から目的地への順に並べ替えたときの、plan.quests の添字の並び。 */
+  order: readonly number[] | null;
 };
 
 export type WalkAction =
@@ -43,6 +58,8 @@ export type WalkAction =
   | { type: "pickBudget"; budget: Budget }
   | { type: "start" }
   | { type: "advanceStage" }
+  | { type: "receivePlan"; plan: QuestPlan }
+  | { type: "reorder"; order: readonly number[] }
   | { type: "found" }
   | { type: "openCapture" }
   | { type: "backToRoute" }
@@ -65,6 +82,8 @@ export const initialWalk: WalkState = {
   stage: 0,
   step: 0,
   ...emptyRecords(),
+  plan: null,
+  order: null,
 };
 
 export type Eta = { shortest: number; extra: number; total: number };
@@ -76,6 +95,13 @@ export const eta = (budget: Budget): Eta => {
 
 const replaceAt = <T,>(list: T[], index: number, value: T): T[] =>
   list.map((item, i) => (i === index ? value : item));
+
+// 演出をすべて見せ終え、かつクエストが届いたときだけ地図へ進む。
+const routeWhenReady = (s: WalkState): WalkState =>
+  s.screen === Screen.Loading && s.stage >= LOADING_STAGES.length && s.plan !== null ? { ...s, screen: Screen.Route } : s;
+
+const isPermutation = (order: readonly number[], size: number): boolean =>
+  order.length === size && [...order].sort((a, b) => a - b).every((n, i) => n === i);
 
 const nextCheckpoint = (s: WalkState): WalkState => {
   const step = s.step + 1;
@@ -92,11 +118,13 @@ export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
       return { ...s, budget: a.budget };
     case "start":
       if (!s.dest.trim()) return s;
-      return { ...s, screen: Screen.Loading, stage: 0, step: 0, ...emptyRecords() };
-    case "advanceStage": {
-      const stage = s.stage + 1;
-      return stage >= LOADING_STAGES.length ? { ...s, screen: Screen.Route, stage } : { ...s, stage };
-    }
+      return { ...s, screen: Screen.Loading, stage: 0, step: 0, ...emptyRecords(), plan: null, order: null };
+    case "advanceStage":
+      return routeWhenReady({ ...s, stage: Math.min(s.stage + 1, LOADING_STAGES.length) });
+    case "receivePlan":
+      return routeWhenReady({ ...s, plan: a.plan, order: null });
+    case "reorder":
+      return s.plan && isPermutation(a.order, s.plan.quests.length) ? { ...s, order: a.order } : s;
     case "found":
       return nextCheckpoint(s);
     case "openCapture":

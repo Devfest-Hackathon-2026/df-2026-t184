@@ -3,26 +3,30 @@ import { IconName, IconSticker, ScreenHeading } from "@/components/sticker";
 import { FeedCard } from "../components/FeedCard";
 import { SAMPLE_FEED } from "../content";
 
-const BACK_ICON_SIZE = 40;
+const ROUND_ICON_SIZE = 44;
 
 type FeedScreenProps = { onBack?: () => void };
 
-/** ともだちの思い出カードを縦に並べる画面。 */
+/** ともだちの寄り道ログを、新しい順に縦に並べる画面。 */
 export const FeedScreen = ({ onBack }: FeedScreenProps): React.ReactElement => (
-  <div className="flex flex-col gap-5 p-5">
-    <header className="flex items-center gap-3">
+  <div className="flex flex-col gap-4 p-4">
+    <header className="grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 px-1 pt-1">
       {onBack ? (
-        <button type="button" aria-label="思い出カードに戻る" onClick={onBack} className="shrink-0 rounded-full focus-visible:focus-ring">
-          <IconSticker name={IconName.Back} size={BACK_ICON_SIZE} bg="bg-sticker" className="shadow-sticker" />
+        <button type="button" aria-label="思い出カードに戻る" onClick={onBack} className="rounded-full focus-visible:focus-ring">
+          <IconSticker name={IconName.Back} size={ROUND_ICON_SIZE} bg="bg-sticker" className="shadow-sticker" />
         </button>
-      ) : null}
-      <div className="flex min-w-0 flex-col gap-1">
-        <ScreenHeading className="font-hand text-2xl text-ink">ともだちの寄り道</ScreenHeading>
-        <p className="text-xs text-ink-soft">ここに並ぶのは見本の投稿です</p>
+      ) : (
+        <span />
+      )}
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-note text-xs tracking-widest text-ink-soft">WALK JOURNAL</span>
+        <ScreenHeading className="font-note text-base font-semibold text-ink">みんなの寄り道</ScreenHeading>
       </div>
+      <span />
     </header>
+    <p className="text-center font-note text-xs text-ink-soft">友だちが見つけた、いつもの道の小さな発見</p>
 
-    <ul className="flex flex-col gap-3">
+    <ul aria-label="友だちの寄り道ログ" className="flex flex-col gap-4">
       {SAMPLE_FEED.map((post) => (
         <li key={post.id}>
           <FeedCard post={post} />

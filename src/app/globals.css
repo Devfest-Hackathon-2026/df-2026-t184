@@ -77,6 +77,9 @@
   --animate-pop-in: pop-in 200ms var(--ease-pop);
   --animate-needle-wiggle: none;
   --animate-needle-spin: needle-spin 1.6s linear infinite;
+  --animate-bot-idle: bot-bob 3.2s ease-in-out infinite;
+  --animate-bot-think: bot-tilt 1.2s ease-in-out infinite;
+  --animate-typing-dot: typing-dot 1s ease-in-out infinite;
 }
 
 /*
@@ -150,6 +153,21 @@
 @keyframes pop-in {
   0% { translate: 0 8px; opacity: 0; }
   100% { translate: 0 0; opacity: 1; }
+}
+
+@keyframes bot-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -3px; }
+}
+
+@keyframes bot-tilt {
+  0%, 100% { rotate: -4deg; }
+  50% { rotate: 4deg; }
+}
+
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; translate: 0 0; }
+  30% { opacity: 1; translate: 0 -3px; }
 }
 
 @keyframes needle-spin {

@@ -11,7 +11,7 @@ type BudgetPickerProps = {
 /** 寄り道に使ってもいい時間を 3 つから選ぶ。 */
 export const BudgetPicker = ({ value, onChange }: BudgetPickerProps): React.ReactElement => (
   <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-    <legend className="float-left w-full p-0 pb-2 font-hand text-sm text-ink">寄り道してもいい時間</legend>
+    <legend className="sr-only">寄り道してもいい時間</legend>
     <div className="grid grid-cols-3 gap-3">
       {BUDGETS.map((budget) => (
         <ChoiceChip

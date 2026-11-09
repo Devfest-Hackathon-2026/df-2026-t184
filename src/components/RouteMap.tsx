@@ -146,11 +146,12 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
         // 下のカードの高さに合わせて、地図の枠の下端を決める（カードの高さが変わっても追従）
         const mapEl = el.current;
         const card = mapEl.parentElement?.querySelector<HTMLElement>("[data-route-card]");
-        const fitToCard = () => {
-          mapEl.style.bottom = `${card?.offsetHeight ?? 360}px`;
-        };
-        fitToCard();
+        // カードを重ねない画面（/walk）では、親の枠いっぱいに広げる
         if (card) {
+          const fitToCard = () => {
+            mapEl.style.bottom = `${card.offsetHeight}px`;
+          };
+          fitToCard();
           ro = new ResizeObserver(fitToCard);
           ro.observe(card);
         }
@@ -223,5 +224,5 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
 
   useEffect(() => paint(step), [step]);
 
-  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, right: 0 }} />;
+  return <div ref={el} role="application" aria-label="寄り道ルートの地図" style={{ position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }} />;
 }
