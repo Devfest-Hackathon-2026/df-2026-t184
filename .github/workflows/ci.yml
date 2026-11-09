@@ -36,16 +36,26 @@ jobs:
         with:
           fetch-depth: 0
       - name: gitleaks
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tool_dir=$(mktemp -d "${RUNNER_TEMP}/gitleaks.XXXXXX")
           trap 'rm -rf "$tool_dir"' EXIT
           archive="${tool_dir}/gitleaks.tar.gz"
-          curl --fail --show-error --silent --location \
-            --retry 5 --retry-all-errors --retry-delay 2 \
-            --connect-timeout 15 --max-time 120 \
-            --output "${archive}" \
-            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          # The browser download URL returned repeated HTTP 504 on hosted runners.
+          # Fetch the same pinned release asset through the official GitHub API.
+          for attempt in 1 2 3; do
+            if gh api repos/gitleaks/gitleaks/releases/assets/378332058 \
+              -H 'Accept: application/octet-stream' > "${archive}"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "::error::Failed to download the pinned Gitleaks release asset"
+              exit 1
+            fi
+            sleep 2
+          done
           # Release asset digest verified against the official GitHub Releases API.
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  ${archive}" | sha256sum --check --strict
           tar -xzf "${archive}" -C "${tool_dir}" gitleaks
