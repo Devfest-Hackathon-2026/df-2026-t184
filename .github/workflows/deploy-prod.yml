@@ -32,16 +32,10 @@ jobs:
       GCP_REGION: asia-east1
       BACKEND_ID: yorimichi-prod
       EXPECTED_ENV: prod
+      EXPECTED_SA: yorimichi-prod@df-2026-t184-prod.iam.gserviceaccount.com
       FIREBASE_TOOLS_VERSION: "15.35.0"
       API_BASE: https://firebaseapphosting.googleapis.com/v1beta/projects/df-2026-t184-prod/locations/asia-east1/backends/yorimichi-prod
     steps:
-      - name: Checkout pushed commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          persist-credentials: false
-          path: source
-
       - name: Checkout trusted deployment controls
         uses: actions/checkout@v4
         with:
@@ -49,14 +43,24 @@ jobs:
           path: trusted
           persist-credentials: false
 
-      - name: Check candidate is current
+      - name: Resolve current deploy candidate
         id: candidate
         env:
           GH_TOKEN: ${{ github.token }}
           DEPLOY_ENV: prod
         run: python3 trusted/scripts/check-deploy-candidate.py
 
+      # イベントSHAではなく、ロック取得後に再解決した現在のmain SHAをcheckoutする。
+      - name: Checkout selected commit
+        if: steps.candidate.outputs.deployable == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.candidate.outputs.sha }}
+          persist-credentials: false
+          path: source
+
       - name: Set up Node.js
+        if: steps.candidate.outputs.deployable == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -93,43 +97,38 @@ jobs:
             echo "::error::backend ${BACKEND_ID} has environment '${env_name}', expected '${EXPECTED_ENV}'"
             exit 1
           fi
+          sa=$(jq -r '.serviceAccount' <<<"${backend}")
+          if [ "${sa}" != "${EXPECTED_SA}" ]; then
+            echo "::error::backend ${BACKEND_ID} runs as '${sa}', expected '${EXPECTED_SA}'"
+            exit 1
+          fi
           uri=$(jq -r '.uri' <<<"${backend}")
           echo "BACKEND_URI=${uri}" >> "$GITHUB_ENV"
-          echo "backend ${BACKEND_ID} (env=${env_name}) uri=${uri}"
+          echo "backend ${BACKEND_ID} (env=${env_name}, sa=${sa}) uri=${uri}"
 
       - name: Wait for in-flight rollouts
         if: steps.candidate.outputs.deployable == 'true'
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: |
-          deadline=$((SECONDS + 1200))
-          while :; do
-            in_flight=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" \
-              "${API_BASE}/rollouts?pageSize=20" \
-              | jq '[.rollouts[]? | select(.state == "QUEUED" or .state == "PENDING_BUILD" or .state == "PROGRESSING" or .state == "PAUSED")] | length')
-            [ "${in_flight}" = "0" ] && break
-            if [ ${SECONDS} -ge ${deadline} ]; then
-              echo "::error::timed out waiting for in-flight rollouts to settle"
-              exit 1
-            fi
-            echo "waiting for ${in_flight} in-flight rollout(s)..."
-            sleep 15
-          done
+        run: python3 trusted/scripts/apphosting-rollouts.py wait
 
       - name: Record job start time
         if: steps.candidate.outputs.deployable == 'true'
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
 
-      - name: Recheck candidate after waiting
+      # main が待機中に進んだ場合は同じ選定を維持できないので skip する。
+      # 新しい main はそれ自身の CI workflow_run で別ジョブがデプロイする。
+      - name: Re-resolve candidate before deploying
+        id: recheck
         if: steps.candidate.outputs.deployable == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           DEPLOY_ENV: prod
-          REQUIRE_CURRENT: "true"
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
         run: python3 trusted/scripts/check-deploy-candidate.py
 
       - name: Deploy
-        if: steps.candidate.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true'
         working-directory: source
         run: >-
           firebase deploy
@@ -139,30 +138,13 @@ jobs:
           --force
 
       - name: Verify rollout succeeded
-        if: steps.candidate.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true'
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: |
-          latest=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" \
-            "${API_BASE}/rollouts?pageSize=10" | jq '.rollouts // [] | sort_by(.createTime) | last')
-          if [ -z "${latest}" ] || [ "${latest}" = "null" ]; then
-            echo "::error::no rollout found for ${BACKEND_ID}; deploy may have been skipped"
-            exit 1
-          fi
-          state=$(jq -r '.state' <<<"${latest}")
-          created_epoch=$(date -d "$(jq -r '.createTime' <<<"${latest}")" +%s)
-          if [ "${created_epoch}" -lt "$((JOB_START_EPOCH - 60))" ]; then
-            echo "::error::latest rollout predates this job; new rollout was not created"
-            exit 1
-          fi
-          if [ "${state}" != "SUCCEEDED" ]; then
-            echo "::error::latest rollout state is '${state}', expected 'SUCCEEDED'"
-            exit 1
-          fi
-          echo "rollout $(jq -r '.name' <<<"${latest}") state=${state}"
+        run: python3 trusted/scripts/apphosting-rollouts.py verify
 
       - name: Smoke check
-        if: steps.candidate.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true' && steps.recheck.outputs.deployable == 'true'
         run: |
           code=000
           for _ in $(seq 1 12); do
