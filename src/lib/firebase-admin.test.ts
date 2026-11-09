@@ -52,3 +52,11 @@ describe("Admin SDK environment routing", () => {
     await expect(import("./firebase-admin")).rejects.toThrow(/FIRESTORE_EMULATOR_HOST/);
   });
 });
+
+it.each(["FIRESTORE_EMULATOR_HOST", "FIREBASE_AUTH_EMULATOR_HOST"])("rejects leftover %s in stg", async (name) => {
+  vi.stubEnv("NEXT_PUBLIC_APP_ENV", "stg");
+  vi.stubEnv("NEXT_PUBLIC_FIREBASE_EMULATOR", "false");
+  vi.stubEnv("NEXT_PUBLIC_FIREBASE_DATABASE_ID", "yorimichi-stg");
+  vi.stubEnv(name, "localhost:8080");
+  await expect(import("./firebase-admin")).rejects.toThrow(name);
+});

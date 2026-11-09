@@ -111,6 +111,9 @@ export function assertFirebaseWebConfig(
 }
 
 export function assertLocalEmulator(appEnv: AppEnvironment, enabled: string | undefined): void {
+  if (appEnv !== "local" && enabled === "true") {
+    throw new Error("stg / prod では NEXT_PUBLIC_FIREBASE_EMULATOR=true を指定できません。");
+  }
   if (appEnv === "local" && enabled !== "true") {
     throw new Error("local のFirebase利用には NEXT_PUBLIC_FIREBASE_EMULATOR=true が必須です。");
   }

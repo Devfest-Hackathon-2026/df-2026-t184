@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertFirebaseWebConfig,
+  assertLocalEmulator,
   FIRESTORE_DATABASE_IDS,
   resolveAppEnvironment,
   resolveFirestoreDatabaseId,
@@ -103,4 +104,10 @@ describe("assertFirebaseWebConfig", () => {
   it("does not require the web config in local (emulator-only dev works)", () => {
     expect(() => assertFirebaseWebConfig({}, "local")).not.toThrow();
   });
+});
+
+it.each(["stg", "prod"] as const)("rejects the emulator flag in %s", (env) => {
+  expect(() => assertLocalEmulator(env, "true")).toThrow(/NEXT_PUBLIC_FIREBASE_EMULATOR/);
+  expect(() => assertLocalEmulator(env, "false")).not.toThrow();
+  expect(() => assertLocalEmulator(env, undefined)).not.toThrow();
 });

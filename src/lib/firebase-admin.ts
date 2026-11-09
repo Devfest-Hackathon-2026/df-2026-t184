@@ -18,6 +18,13 @@ const appEnvironment = resolveAppEnvironment(
   process.env.NODE_ENV,
 );
 assertLocalEmulator(appEnvironment, process.env.NEXT_PUBLIC_FIREBASE_EMULATOR);
+if (appEnvironment !== "local") {
+  for (const name of ["FIRESTORE_EMULATOR_HOST", "FIREBASE_AUTH_EMULATOR_HOST"]) {
+    if (process.env[name]) {
+      throw new Error(`stg / prod では ${name} を解除してください。エミュレータとの混在を防ぐため接続を拒否しました。`);
+    }
+  }
+}
 if (appEnvironment === "local") {
   for (const [name, host] of [
     ["FIRESTORE_EMULATOR_HOST", "localhost:8080"],

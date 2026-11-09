@@ -31,6 +31,7 @@ stg と prod の 2 環境を同居させている。Auth は環境間で共有�
   値は環境と一致している必要がある（`stg`→`yorimichi-stg`、`prod`→`yorimichi-prod`）。
   不一致・未指定・`(default)` へのフォールバックはすべてFirebaseモジュール読み込み時エラー。
 - `local` のFirebase利用は `NEXT_PUBLIC_FIREBASE_EMULATOR=true` が必須。DB ID省略時はエミュレータの `(default)` を使い、実環境のDB名は拒否する。
+- `stg` / `prod` ではエミュレータフラグを `false` または未設定にする。Admin SDK用のエミュレータホスト変数も解除する。矛盾する設定は拒否する。
 - `NEXT_PUBLIC_APP_ENV` の値が `stg`/`prod`/`local` 以外なら常にエラー。
 
 これらは `src/lib/env.test.ts` でテスト済み（`npm test`）。
@@ -117,7 +118,7 @@ npm run dev
   Admin SDKでは `FIREBASE_AUTH_EMULATOR_HOST` / `FIRESTORE_EMULATOR_HOST` を自動設定する。
   これらを手動設定した場合、上記の値と異なる接続先は拒否する。
 - stg の実 DB に接続したい場合: `.env.local` に `NEXT_PUBLIC_APP_ENV=stg` と
-  `NEXT_PUBLIC_FIREBASE_DATABASE_ID=yorimichi-stg`、stg の Web アプリ設定値、
+  `NEXT_PUBLIC_FIREBASE_DATABASE_ID=yorimichi-stg`、`NEXT_PUBLIC_FIREBASE_EMULATOR=false`、stg の Web アプリ設定値、
   `gcloud auth application-default login` を済ませる。ルールが全拒否なので
   クライアントからは読み書きできず、admin SDK（サーバー側）のみ IAM が許す範囲で動く。
 - `npm run build` など `NODE_ENV=production` の実行では APP_ENV が必須。
@@ -144,7 +145,7 @@ firebase deploy --only firestore:yorimichi-prod
 - `firebase deploy`（`--only` なし）は apphosting の両バックエンドと両 DB に
   デプロイしてしまうため使わない。
 - 複数 DB 構成では `firebase deploy --only firestore:rules` / `:indexes` は
-  何もデプロイせず成功してしまう既知の罠がある（firebase-tools#10447）。
+  は対象DBを明示しないため使わない。CLIのバージョンによって対象範囲や動作が異なる。
   必ず `firestore:<databaseId>` まで書く。
 - 初回のローカルソースデプロイは、そのロケーションで初めての場合
   ソース保管用 GCS バケットの作成と App Hosting SA への権限付与が走り、
