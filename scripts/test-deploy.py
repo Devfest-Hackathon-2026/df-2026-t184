@@ -206,6 +206,10 @@ class RolloutTests(unittest.TestCase):
               self.rollout('old', 'SUCCEEDED', '2026-01-01T00:00:00Z')]
         self.assertEqual(self.mod.latest(rs)['name'].endswith('new'), True)
 
+    def verify(self, fetch, epoch, deadline=60):
+        return self.mod.verify(fetch, 'base', 'tok', epoch, deadline,
+                               sleep_fn=lambda s: None)
+
     def test_verify_requires_cli_label_and_window(self):
         epoch = self.mod._epoch('2026-01-02T00:00:30Z')
         ours = self.rollout('ours', 'SUCCEEDED', '2026-01-02T00:00:10Z',
@@ -214,7 +218,7 @@ class RolloutTests(unittest.TestCase):
                                {'deployment-tool': 'console'})
         pages = {0: {'rollouts': [ours, foreign]}}
         # Newest by time is 'foreign' but it lacks the CLI label: 'ours' wins.
-        self.mod.verify(self.paged_fetch(pages), 'base', 'tok', epoch)
+        self.verify(self.paged_fetch(pages), epoch)
 
     def test_verify_rejects_missing_and_unsuccessful(self):
         epoch = self.mod._epoch('2026-01-02T00:00:30Z')
@@ -225,7 +229,88 @@ class RolloutTests(unittest.TestCase):
         for rs in ([stale], [failed]):
             pages = {0: {'rollouts': rs}}
             with self.assertRaises(SystemExit, msg=str(rs)):
-                self.mod.verify(self.paged_fetch(pages), 'base', 'tok', epoch)
+                self.verify(self.paged_fetch(pages), epoch)
+
+    def test_verify_polls_pinned_rollout_until_success(self):
+        # The CLI exits while the rollout is still PROGRESSING; the rollout
+        # commonly flips to SUCCEEDED seconds later (observed 2026-11-10:
+        # job failed at 16:46:53, rollout SUCCEEDED at 16:46:55).
+        epoch = self.mod._epoch('2026-01-02T00:00:30Z')
+        ours = self.rollout('ours', 'PROGRESSING', '2026-01-02T00:00:10Z',
+                            {'deployment-tool': 'cli-firebase'})
+        calls = {'n': 0}
+
+        def fetch(url, token):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                return {'rollouts': [ours]}
+            return {'rollouts': [dict(ours, state='SUCCEEDED')]}
+        self.verify(fetch, epoch)
+        self.assertEqual(calls['n'], 2)
+
+    def test_verify_rejects_terminal_states_of_pinned_rollout(self):
+        epoch = self.mod._epoch('2026-01-02T00:00:30Z')
+        for bad in ({'state': 'FAILED'}, {'state': 'PAUSED'},
+                    {'state': 'PROGRESSING', 'paused': True},
+                    {'state': 'FUTURE_UNKNOWN'}):
+            with self.subTest(bad=bad):
+                ours = self.rollout('ours', 'PROGRESSING',
+                                    '2026-01-02T00:00:10Z',
+                                    {'deployment-tool': 'cli-firebase'})
+                calls = {'n': 0}
+
+                def fetch(url, token):
+                    calls['n'] += 1
+                    if calls['n'] == 1:
+                        return {'rollouts': [ours]}
+                    return {'rollouts': [dict(ours, **bad)]}
+                with self.assertRaises(SystemExit):
+                    self.verify(fetch, epoch)
+
+    def test_verify_times_out_while_pinned_rollout_in_flight(self):
+        epoch = self.mod._epoch('2026-01-02T00:00:30Z')
+        ours = self.rollout('ours', 'PROGRESSING', '2026-01-02T00:00:10Z',
+                            {'deployment-tool': 'cli-firebase'})
+        pages = {0: {'rollouts': [ours]}}
+        with self.assertRaises(SystemExit) as ctx:
+            self.verify(self.paged_fetch(pages), epoch, deadline=0)
+        self.assertIn('timed out', str(ctx.exception))
+        self.assertIn('ours', str(ctx.exception))
+
+    def test_verify_never_adopts_another_rollouts_success(self):
+        # After pinning, a different rollout reaching SUCCEEDED — even a
+        # newer CLI-labelled one inside the job window — must not rescue
+        # the pinned rollout. This job's deploy is that one name only.
+        epoch = self.mod._epoch('2026-01-02T00:00:30Z')
+        ours = self.rollout('ours', 'PROGRESSING', '2026-01-02T00:00:10Z',
+                            {'deployment-tool': 'cli-firebase'})
+        newer = self.rollout('newer', 'SUCCEEDED', '2026-01-02T00:00:20Z',
+                             {'deployment-tool': 'cli-firebase'})
+        calls = {'n': 0}
+
+        def fetch(url, token):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                return {'rollouts': [ours]}
+            return {'rollouts': [dict(ours, state='FAILED'), newer]}
+        with self.assertRaises(SystemExit) as ctx:
+            self.verify(fetch, epoch)
+        self.assertIn('ours', str(ctx.exception))
+
+    def test_verify_errors_if_pinned_rollout_vanishes(self):
+        epoch = self.mod._epoch('2026-01-02T00:00:30Z')
+        ours = self.rollout('ours', 'PROGRESSING', '2026-01-02T00:00:10Z',
+                            {'deployment-tool': 'cli-firebase'})
+        calls = {'n': 0}
+
+        def fetch(url, token):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                return {'rollouts': [ours]}
+            return {'rollouts': []}
+        with self.assertRaises(SystemExit) as ctx:
+            self.verify(fetch, epoch)
+        self.assertIn('ours', str(ctx.exception))
 
 
 class ReportTests(unittest.TestCase):

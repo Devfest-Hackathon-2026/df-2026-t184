@@ -344,11 +344,15 @@ CIのpassは実機検証ではない。OIDC交換・builds/rollouts作成・roll
   **PAUSEDがあれば名前付きで即失敗**する。黙って待ち続けると、
   誰かがクラウド側で再開したrolloutとデプロイが競合し得るため。
 - `verify`: このジョブの時間窓（JOB_START以降・誤差60秒）に作成され、
-  `deployment-tool`ラベルが`cli-firebase`で始まる最新rolloutが
-  SUCCEEDEDであることを確認する。firebase-tools 15.35.0のCLIは
-  rollout/operation IDを標準出力に出さないため、相関は「時刻窓＋
-  CLI作成ラベル」までであり、同時刻に他のCLIデプロイがあった場合まで
-  完全には区別できない（完全相関とは呼ばない）。
+  `deployment-tool`ラベルが`cli-firebase`で始まる最新rolloutを1本だけ選び、
+  そのrollout名に固定してVERIFY_DEADLINE_SECONDS（既定1800秒）まで
+  ポーリングする。SUCCEEDEDのみ成功で、QUEUED/PENDING_BUILD/PROGRESSINGは
+  待機、FAILED/PAUSED/それ以外の状態は即失敗。CLI終了直後はrolloutが
+  PROGRESSINGのままのことがあるため、1回読みでは判定しない。
+  ピン留め後に別rolloutがSUCCEEDEDになっても乗り換えない。
+  firebase-tools 15.35.0のCLIはrollout/operation IDを標準出力に
+  出さないため、相関は「時刻窓＋CLI作成ラベル」までであり、同時刻に
+  他のCLIデプロイがあった場合まで完全には区別できない（完全相関とは呼ばない）。
 - 外部から同時に手動デプロイしないこと。ジョブを手動キャンセルしても
   クラウド側の処理は残る。
 

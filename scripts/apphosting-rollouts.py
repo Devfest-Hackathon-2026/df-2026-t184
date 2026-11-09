@@ -5,12 +5,18 @@ Subcommands:
           A PAUSED rollout aborts immediately with its name, because waiting
           it out silently races whoever resumes it later. Times out per
           WAIT_DEADLINE_SECONDS (default 1200).
-  verify  Confirm the newest rollout created inside this job's window
-          (createTime >= JOB_START_EPOCH - 60, label deployment-tool starting
-          with 'cli-firebase') reached SUCCEEDED. Correlation is time + the
-          firebase-tools deployment-tool label, not an exclusive operation
-          id: the CLI does not print the rollout id (firebase-tools 15.35.0),
-          so a same-window deploy by another CLI caller cannot be ruled out.
+  verify  Confirm the rollout this job created reaches SUCCEEDED. The newest
+          rollout inside this job's window (createTime >= JOB_START_EPOCH - 60,
+          label deployment-tool starting with 'cli-firebase') is pinned by
+          name and then polled until VERIFY_DEADLINE_SECONDS (default 1800):
+          SUCCEEDED passes, QUEUED/PENDING_BUILD/PROGRESSING keeps waiting,
+          and FAILED/PAUSED/any other state fails. Another rollout reaching
+          SUCCEEDED is never adopted. The CLI exits while its rollout is
+          still in flight, so a single read right after `firebase deploy`
+          cannot be trusted. Correlation is time + the firebase-tools
+          deployment-tool label, not an exclusive operation id: the CLI does
+          not print the rollout id (firebase-tools 15.35.0), so a
+          same-window deploy by another CLI caller cannot be ruled out.
 
 All list calls follow nextPageToken to the end; the first page's 10/20
 entries are never trusted as the whole picture.
@@ -30,7 +36,7 @@ _SKEW_SECONDS = 60
 
 def fetch_json(url, token):
     req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
-    with urllib.request.urlopen(req) as res:
+    with urllib.request.urlopen(req, timeout=30) as res:
         return json.loads(res.read())
 
 
@@ -104,18 +110,35 @@ def wait(fetch, api_base, token, deadline_seconds, sleep_fn=time.sleep):
         sleep_fn(15)
 
 
-def verify(fetch, api_base, token, since_epoch):
+def verify(fetch, api_base, token, since_epoch, deadline_seconds,
+           sleep_fn=time.sleep):
     rollouts, _ = list_rollouts(fetch, api_base, token)
-    candidates = job_rollouts(rollouts, since_epoch)
-    newest = latest(candidates)
-    if newest is None:
+    pinned = latest(job_rollouts(rollouts, since_epoch))
+    if pinned is None:
         raise SystemExit(
             '::error::no rollout created by this job found; deploy may have been skipped')
-    if newest.get('state') != 'SUCCEEDED':
-        raise SystemExit(
-            f"::error::latest rollout {newest['name']} state is "
-            f"'{newest.get('state')}', expected 'SUCCEEDED'")
-    print(f"rollout {newest['name']} state={newest['state']}")
+    name = pinned['name']
+    deadline = time.monotonic() + deadline_seconds
+    while True:
+        state = pinned.get('state') or ''
+        if state == 'SUCCEEDED':
+            print(f'rollout {name} state={state}')
+            return
+        if pinned.get('paused') or state not in IN_FLIGHT:
+            raise SystemExit(
+                f"::error::rollout {name} state is "
+                f"'{state}', expected 'SUCCEEDED'")
+        if time.monotonic() >= deadline:
+            raise SystemExit(
+                f'::error::timed out waiting for rollout {name} '
+                f'(still {state})')
+        print(f'waiting for rollout {name} (state={state})...')
+        sleep_fn(15)
+        rollouts, _ = list_rollouts(fetch, api_base, token)
+        pinned = next((r for r in rollouts if r.get('name') == name), None)
+        if pinned is None:
+            raise SystemExit(
+                f'::error::rollout {name} no longer appears in the rollout list')
 
 
 def main():
@@ -126,7 +149,8 @@ def main():
         wait(fetch_json, api_base, token,
              int(os.environ.get('WAIT_DEADLINE_SECONDS', '1200')))
     elif command == 'verify':
-        verify(fetch_json, api_base, token, int(os.environ['JOB_START_EPOCH']))
+        verify(fetch_json, api_base, token, int(os.environ['JOB_START_EPOCH']),
+               int(os.environ.get('VERIFY_DEADLINE_SECONDS', '1800')))
     else:
         raise SystemExit('usage: apphosting-rollouts.py wait|verify')
 
