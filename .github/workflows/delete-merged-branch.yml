@@ -1,0 +1,71 @@
+name: Delete merged PR branch
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  delete:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      # Checks run as workflow code only; the delete itself is a git push with
+      # --force-with-lease, which the server applies atomically (TOCTOU-safe).
+      - uses: actions/github-script@v7
+        id: check
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const branch = pr.head.ref;
+            const repository = await github.rest.repos.get({ owner, repo });
+            const longLived = /^(main|master|develop|development|staging|stg|prod|production|gh-pages|trunk|releases?|hotfix)(\/|$)/i;
+            if (!pr.merged || pr.head.repo?.full_name !== repository.data.full_name ||
+                branch === repository.data.default_branch || branch === pr.base.ref ||
+                longLived.test(branch)) {
+              core.info('Not an eligible merged feature branch; skipped');
+              return;
+            }
+            const open = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            if (open.some(p => p.base.ref === branch ||
+                (p.head.repo?.full_name === repository.data.full_name && p.head.ref === branch))) {
+              core.info('Another open PR uses this branch; skipped');
+              return;
+            }
+            // The lease expectation is the merged head itself: any push landing
+            // between the merge and the delete makes the server reject it, so
+            // a getRef -> deleteRef race can no longer drop commits. Note the
+            // remaining accepted race: a new PR opened on this branch after
+            // our open-PR check cannot be made atomic with the deletion.
+            core.setOutput('branch', branch);
+            core.setOutput('expected', pr.head.sha);
+            core.info(`Deleting ${branch} at ${pr.head.sha} with lease`);
+
+      # The script comes from the default branch only; PR code never runs
+      # against this write token.
+      - name: Checkout trusted delete script
+        if: steps.check.outputs.branch != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Delete branch via atomic lease
+        if: steps.check.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.check.outputs.branch }}
+          EXPECTED_SHA: ${{ steps.check.outputs.expected }}
+          REMOTE_URL: https://github.com/${{ github.repository }}.git
+        run: bash scripts/delete-merged-branch.sh
