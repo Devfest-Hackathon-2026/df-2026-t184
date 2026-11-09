@@ -419,7 +419,7 @@ export default function YorimichiApp() {
                 AIがうまく動かなかったため、サンプルのクエストを表示しています
               </div>
             )}
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 344, boxSizing: "border-box", background: "#fff", borderRadius: "24px 24px 0 0", padding: "12px 20px 26px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 -6px 24px rgba(27,36,51,.15)" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 344, maxHeight: "88%", overflowY: "auto", boxSizing: "border-box", background: "#fff", borderRadius: "24px 24px 0 0", padding: "12px 20px 26px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 -6px 24px rgba(27,36,51,.15)" }}>
               <div style={{ width: 40, height: 4, borderRadius: 2, background: C.line, alignSelf: "center" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.teal }}>クエスト {qi + 1} / 3</div>
@@ -451,7 +451,7 @@ export default function YorimichiApp() {
                   );
                 })}
               </div>
-              <div style={{ display: "flex", gap: 10, marginTop: "auto" }}>
+              <div style={{ display: "flex", gap: 10, marginTop: "auto", flex: "none" }}>
                 <button onClick={() => setScreen("capture")} style={btn({ flex: 1, minHeight: 52, border: `1.5px solid ${C.ink}`, borderRadius: 14, background: "#fff", color: C.ink, font: `700 15px ${FONT}` })}>
                   写真・メモ
                 </button>
