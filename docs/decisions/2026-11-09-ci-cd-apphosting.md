@@ -1,62 +1,24 @@
-# 2026-11-09 CI/CD（App Hosting stg/prod デプロイ）の判断記録
+# 2026-11-09 PRとstg/prodの接続
 
-## 日付・セッション参照
+## 目的と本人の回答
 
-- 日付: 2026-11-09
-- セッション参照: 未取得（親エージェントからの実装指示書を出典として作業）
-- 質問手段・深さ: 短い確認のみ（サブエージェント作業のため対話質問は実施せず、
-  指示書の記載をそのまま回答として扱った。PM の追認はこの PR のレビューで行う）
+ユーザーの依頼: 「stgへのデプロイはPRが作成されたタイミングで、mergeされるとprodにも反映される形でいきたい」
+同一PJ、Auth共通、stg/prodの実行環境とDBを分ける方針も同じ会話で確認済み。
+質問は重複せずこの回答を再利用した。採用理由の本人の発言は未回答。
+会話のメッセージID: 未取得。
 
-## 短い確認
+## 実装上の選択（AIによる設計）
 
-### 目的・スコープ
+GitHub ActionsのCI成功をworkflow_runで受け、mainのデプロイ処理を実行する。
+候補はDeveloper Connectのブランチ自動デプロイとActionsからのCLIデプロイ。
+前者は設定が少ないが共有stgへのPR連動と既存CIの成功判定を別途用意する必要がある。
+後者は処理・権限の管理が増えるが、指定されたイベントと既存CIを一緒に扱えるため選んだ。
+認証はSA鍵とOIDCを比較。鍵の配布・ローテーションを不要にするOIDCで実装した。
+これらはユーザーの選定理由を推測した記録ではない。
 
-PR オープン/更新で共有 stg、main へのマージで prod へ Firebase App Hosting
-デプロイする CI/CD を実装する。ワークフロー定義・IAM/基盤の用意は本変更まで。
+## 結果と未検証
 
-### 新しい判断の有無
-
-あり（デプロイ方式・認証方式・権限設計）。すべて指示書に明示された方針を
-そのまま実装した。以下は指示書の記載を引用したもの。
-
-## 判断（指示書より引用）
-
-- 「PR opened/updated => shared stg deployment, merged main => prod」
-- 「OIDC google-github-actions/auth service account federation, no long-lived keys」
-- 「workflows gated on tests/lint/build/secrets success, same-repo PR only
-  (no fork credentials), main push production」
-- 「trusted workflow approach prevent PR changes stealing prod permissions」
-- 「per-env concurrency, stale builds not overwriting newer」
-- 「WIF providers with repo numeric IDs, event/ref/environment restrictions,
-  separate deployment SAs」
-
-## 実装上の確定（指示書からの落とし込み。PM 追認待ち）
-
-- トリガーは `pull_request` ではなく `workflow_run`（CI 成功時）。
-  ワークフロー定義が常に main のもので実行される trusted workflow 構成。
-- stg: `cancel-in-progress: true`（latest PR wins）+ デプロイ前に
-  in-flight ロールアウト完了待ち。prod: `cancel-in-progress: false` で直列化。
-- `.github/` を変更する PR は stg 自動デプロイをスキップ（fail-closed）。
-- `firebase.json` の `predeploy`/`postdeploy` をデプロイ前に拒否
-  （CLI がローカルシェル実行するため OIDC クレデンシャル流出を防ぐ）。
-- デプロイ SA の権限は firebase-tools 15.35.0 の API 呼び出し列挙に基づく
-  （詳細は `docs/environments.md`「CI/CD」節の表）。
-- `apphosting.builds.create`/`rollouts.create` はバックエンド名条件付き
-  バインドで環境を分離。条件が評価されない場合のフォールバックは
-  文書に記載。
-
-## 選定理由
-
-- 上記は指示書に明記された要件への実装上の対応。未回答の部分はなし。
-- 未選択候補の拒否理由は推測しない（pull_request_target 方式・
-  Developer Connect による GitHub 連携デプロイなどは指示書範囲外）。
-
-## セッション終了時の追記
-
-- 結果: `.github/workflows/deploy-stg.yml` / `deploy-prod.yml`、
-  `scripts/bootstrap-github-deploy.sh`、`firebase.json`/`.gitignore` の
-  クレデンシャル除外、`docs/environments.md` に CI/CD 節を追加。
-- 検証: YAML パース、`bash -n`、検証スクリプトを実 firebase.json に適用し
-  「deploy scope OK」を確認。cloud/IAM/GitHub の変更は未適用（親レビュー待ち）。
-- commit: b2606aa（`feat: stg/prod へのデプロイワークフローと OIDC 基盤スクリプトを追加`）
-- PR: 未作成（親エージェントが扱う）
+mainの固定設定でソースをデプロイする。PR内のデプロイ設定変更は採用しない。
+共有stgは最後のデプロイが表示される。最新SHAを再確認し、古いmainの巻き戻しを防ぐ。
+GCP/GitHubの接続と初回公開の状況はPR本文に記録する。
+この変更は費用・権限に関わるため、AGENTS.mdの規定どおりレビュー後にマージする。

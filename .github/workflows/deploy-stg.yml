@@ -1,12 +1,5 @@
 name: Deploy stg
 
-# PR オープン / 更新 => 共有 stg バックエンド (yorimichi-stg) へデプロイする。
-#
-# pull_request トリガーではなく workflow_run を使うのは、このワークフローの
-# 定義が常にデフォルトブランチ (main) 上のもので実行されるようにするため。
-# PR がワークフロー自体を書き換えて prod の権限を盗むことを防ぐ。
-# 実行されるコード (チェックアウト対象) は PR の head_sha だが、
-# デプロイスコープはこのファイル内の検証ステップで固定する。
 
 on:
   workflow_run:
@@ -19,24 +12,21 @@ jobs:
   deploy:
     name: Deploy to yorimichi-stg
     runs-on: ubuntu-latest
-    environment: stg
-    # 同一リポジトリからの PR で CI (lint/test/build + gitleaks) が成功した場合のみ。
-    # フォーク PR は head_repository.fork == true なので OIDC トークンを発行させない。
-    # DEPLOY_STG_PAUSED=true をリポジトリ変数に設定するとデプロイを一時停止できる。
+    timeout-minutes: 60
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_repository.fork == false &&
       vars.DEPLOY_STG_PAUSED != 'true'
     permissions:
       contents: read
+      pull-requests: read
       id-token: write # OIDC (Workload Identity Federation) 用
-    # stg は共有環境。同時に 1 デプロイのみ、新しい run が来たら古いものはキャンセル
-    # (latest PR wins)。キャンセルされた run のロールアウトがクラウド側で走り続ける
-    # 場合に備え、デプロイ直前に in-flight ロールアウトの完了を待つ。
     concurrency:
       group: apphosting-deploy-stg
-      cancel-in-progress: true
+      cancel-in-progress: false
     env:
       GCP_PROJECT_ID: df-2026-t184-prod
       GCP_REGION: asia-east1
@@ -49,93 +39,52 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+          path: source
           fetch-depth: 0 # merge-base 比較に必要
+
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Check candidate is current
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_ENV: stg
+        run: python3 trusted/scripts/check-deploy-candidate.py
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Skip deploy when PR touches .github/
-        id: guard
-        run: |
-          # PR 側の変更で CI のゲート自体を弱められるのを防ぐため、
-          # .github/ 配下を変更する PR は stg 自動デプロイの対象外とする
-          # (マージ後に信頼済み設定で動く)。デプロイ対象の PR コードは
-          # クラウド側でビルドされるため、ローカルでは実行しない。
-          git fetch --no-tags origin main
-          # merge-base から見て PR 側で .github/ が変わった場合だけスキップする
-          # (main 側が先行していても PR 自体が触っていなければデプロイする)
-          base=$(git merge-base FETCH_HEAD HEAD)
-          if git diff --quiet "${base}" HEAD -- .github/; then
-            echo "deployable=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::この PR は .github/ を変更するため stg 自動デプロイをスキップします"
-            echo "deployable=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Validate deploy scope (firebase.json)
-        if: steps.guard.outputs.deployable == 'true'
-        run: |
-          node <<'EOF'
-          const fs = require("fs");
-          const backend = process.env.BACKEND_ID;
-          const cfg = JSON.parse(fs.readFileSync("firebase.json", "utf8"));
-          // firebase deploy は設定ファイルの predeploy/postdeploy をローカルで
-          // シェル実行する (lifecycleHooks)。OIDC クレデンシャルが見えるこの
-          // ジョブで PR 由来のコマンドを走らせないため、全キーを再帰的に拒否する。
-          const banned = new Set(["predeploy", "postdeploy"]);
-          (function scan(o, p) {
-            if (o && typeof o === "object") {
-              for (const [k, v] of Object.entries(o)) {
-                if (banned.has(k)) {
-                  throw new Error(`forbidden lifecycle hook "${k}" at ${p || "root"}`);
-                }
-                scan(v, `${p}.${k}`);
-              }
-            }
-          })(cfg, "");
-          // デプロイスコープを固定: --only で指定するバックエンドが
-          // firebase.json に正確に 1 つ存在し、rootDir が "/" であること。
-          // これによりソース設定の書き換えで stg ジョブを prod バックエンドへ
-          // 向けることはできない (--only は固定値なので存在しなければ CLI が失敗する)。
-          const entries = [].concat(cfg.apphosting || []);
-          const match = entries.filter((e) => e && e.backendId === backend);
-          if (match.length !== 1) {
-            throw new Error(`expected exactly one apphosting entry with backendId=${backend}`);
-          }
-          const c = match[0];
-          if (c.rootDir !== "/") throw new Error(`${backend}: rootDir must be "/"`);
-          if (c.localBuild) throw new Error(`${backend}: localBuild is not allowed`);
-          for (const pat of [".git", "node_modules", ".env*"]) {
-            if (!Array.isArray(c.ignore) || !c.ignore.includes(pat)) {
-              throw new Error(`${backend}: ignore must include "${pat}"`);
-            }
-          }
-          console.log("deploy scope OK");
-          EOF
+      - name: Prepare fixed deployment configuration
+        if: steps.candidate.outputs.deployable == 'true'
+        env:
+          DEPLOY_ENV: stg
+        run: python3 trusted/scripts/prepare-deploy-source.py trusted source
 
       - name: Install firebase-tools
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         run: npm install -g "firebase-tools@${FIREBASE_TOOLS_VERSION}"
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
         id: auth
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_STG }}
           service_account: ${{ vars.GCP_DEPLOY_SA_STG }}
           create_credentials_file: true
-          # クレデンシャルファイルはワークスペース外に置く。
-          # デフォルトではワークスペース直下に gha-creds-*.json が作られ、
-          # ソースアーカイブに混入し得るため。
-          credentials_file_path: ${{ runner.temp }}/gha-creds.json
           export_environment_variables: true
           token_format: access_token
 
       - name: Verify backend identity
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
@@ -150,13 +99,10 @@ jobs:
           echo "backend ${BACKEND_ID} (env=${env_name}) uri=${uri}"
 
       - name: Wait for in-flight rollouts
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
-          # 直前にキャンセルされたジョブのロールアウトがクラウド側でまだ
-          # 進行中の場合、その完了を待ってから新しいロールアウトを開始する。
-          # これにより「古いビルドが新しいビルドを上書きする」順序逆転を防ぐ。
           deadline=$((SECONDS + 1200))
           while :; do
             in_flight=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" \
@@ -172,11 +118,20 @@ jobs:
           done
 
       - name: Record job start time
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
 
+      - name: Recheck candidate after waiting
+        if: steps.candidate.outputs.deployable == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_ENV: stg
+          REQUIRE_CURRENT: "true"
+        run: python3 trusted/scripts/check-deploy-candidate.py
+
       - name: Deploy
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
+        working-directory: source
         run: >-
           firebase deploy
           --only "apphosting:${BACKEND_ID}"
@@ -185,13 +140,10 @@ jobs:
           --force
 
       - name: Verify rollout succeeded
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
-          # CLI はロールアウト完了までポーリングする (masterTimeout 60 分) が、
-          # --force 指定でバックエンド不在時に警告だけでスキップされる経路や
-          # ポーリングの早期終了に備え、直近ロールアウトを API で再確認する。
           latest=$(curl -sfS -H "Authorization: Bearer ${GCP_ACCESS_TOKEN}" \
             "${API_BASE}/rollouts?pageSize=10" | jq '.rollouts // [] | sort_by(.createTime) | last')
           if [ -z "${latest}" ] || [ "${latest}" = "null" ]; then
@@ -200,8 +152,6 @@ jobs:
           fi
           state=$(jq -r '.state' <<<"${latest}")
           created_epoch=$(date -d "$(jq -r '.createTime' <<<"${latest}")" +%s)
-          # 60 秒の猶予: runner と GCP の時計ずれを吸収しつつ、
-          # ジョブ開始より前のロールアウト (= 新規作成されていない) を検出する
           if [ "${created_epoch}" -lt "$((JOB_START_EPOCH - 60))" ]; then
             echo "::error::latest rollout predates this job; new rollout was not created"
             exit 1
@@ -213,10 +163,10 @@ jobs:
           echo "rollout $(jq -r '.name' <<<"${latest}") state=${state}"
 
       - name: Smoke check
-        if: steps.guard.outputs.deployable == 'true'
+        if: steps.candidate.outputs.deployable == 'true'
         run: |
           code=000
-          for i in $(seq 1 12); do
+          for _ in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://${BACKEND_URI}" || true)
             case "${code}" in 2*|3*) break;; esac
             sleep 5
