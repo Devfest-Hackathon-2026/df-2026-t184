@@ -124,3 +124,28 @@ describe("POST /api/quests の歩きやすさの希望", () => {
   });
 });
 
+
+describe("POST /api/quests の出発地", () => {
+  const capture = () => {
+    const prompts: string[] = [];
+    vertex.client = {
+      generateContent: async (req: { contents: { parts: { text: string }[] }[] }) => {
+        prompts.push(req.contents[0].parts[0].text);
+        return new Response(geminiBody(JSON.stringify({ quests: [geminiQuest(1), geminiQuest(2), geminiQuest(3)] })));
+      },
+    } as unknown as VertexClient;
+    return prompts;
+  };
+
+  it("出発地を、山かっこを取り除いて Gemini へのプロンプトに入れる", async () => {
+    const prompts = capture();
+    await post({ ...VALID, start: "神田<駅>" });
+    expect(prompts[0]).toContain("<start>神田駅</start>");
+  });
+
+  it("出発地が長すぎる・文字列でないなら 400 を返す", async () => {
+    capture();
+    expect((await post({ ...VALID, start: "あ".repeat(61) })).status).toBe(400);
+    expect((await post({ ...VALID, start: 1 })).status).toBe(400);
+  });
+});

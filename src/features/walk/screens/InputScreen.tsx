@@ -2,18 +2,22 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { ButtonSize, ScreenHeading, StickerButton, StickerCheckbox, TextField } from "@/components/sticker";
+import { ButtonSize, ButtonVariant, ScreenHeading, StickerButton, StickerCheckbox } from "@/components/sticker";
+import type { SuggestPlaces } from "@/lib/places";
 
 import { BudgetPicker } from "../components/BudgetPicker";
 import { EtaNote } from "../components/EtaNote";
 import { BotSays } from "../components/GuideBot";
 import { MoodPicker } from "../components/MoodPicker";
+import { PlaceField } from "../components/PlaceField";
 import { moodById } from "../content";
-import type { WalkAction, WalkState } from "../flow";
+import { HERE, type WalkAction, type WalkState } from "../flow";
 
 type InputScreenProps = {
   state: WalkState;
   dispatch: (action: WalkAction) => void;
+  /** 出発地・行き先の候補の取り方（入力欄ごと）。ないとき（地図キーなし）は普通の入力欄にする。 */
+  suggest?: { start: SuggestPlaces; dest: SuggestPlaces };
 };
 
 enum Question {
@@ -32,13 +36,14 @@ type QuestionDef = {
 };
 
 const QUESTIONS: readonly QuestionDef[] = [
-  { id: Question.Dest, ask: "今日はどこまで歩く？", label: "行き先", answerOf: (s) => s.dest.trim() },
+  { id: Question.Dest, ask: "今日はどこからどこまで歩く？", label: "行き先", answerOf: (s) => s.dest.trim() },
   { id: Question.Mood, ask: "どんな気分の道がいい？", label: "気分", answerOf: (s) => moodById(s.mood).label },
   { id: Question.Budget, ask: "寄り道は何分までなら大丈夫？", label: "寄り道", answerOf: (s) => `+${s.budget}分` },
 ];
 
 const LAST = QUESTIONS.length - 1;
 const DEST_ID = "walk-dest";
+const START_ID = "walk-start";
 // 質問が切り替わったら、その質問の最初の入力へフォーカスを移す。
 const FOCUS_SELECTOR: Record<Question, string> = {
   [Question.Dest]: `#${DEST_ID}`,
@@ -47,12 +52,12 @@ const FOCUS_SELECTOR: Record<Question, string> = {
 };
 
 /** キャラクターが 1 問ずつ聞き、進み具合のバーと一緒に進む最初の画面。 */
-export const InputScreen = ({ state, dispatch }: InputScreenProps): React.ReactElement => {
+export const InputScreen = ({ state, dispatch, suggest }: InputScreenProps): React.ReactElement => {
   const [index, setIndex] = useState(0);
   const form = useRef<HTMLFormElement>(null);
   const question = QUESTIONS[index];
   const isLast = index === LAST;
-  const canAdvance = question.id !== Question.Dest || state.dest.trim() !== "";
+  const canAdvance = question.id !== Question.Dest || (state.dest.trim() !== "" && state.start.trim() !== "");
 
   const firstRender = useRef(true);
   useEffect(() => {
@@ -117,14 +122,34 @@ export const InputScreen = ({ state, dispatch }: InputScreenProps): React.ReactE
           {question.ask}
         </p>
         {question.id === Question.Dest ? (
-          <TextField
-            id={DEST_ID}
-            label="行き先"
-            placeholder="例：上野公園"
-            autoComplete="off"
-            value={state.dest}
-            onChange={(event) => dispatch({ type: "setDest", dest: event.target.value })}
-          />
+          <>
+            <PlaceField
+              id={START_ID}
+              label="出発地"
+              placeholder="例：神田駅"
+              value={state.start}
+              onType={(start) => dispatch({ type: "setStart", start })}
+              onPick={(place) => dispatch({ type: "pickPlace", field: "start", ...place })}
+              suggest={suggest?.start}
+            />
+            {state.start === HERE ? null : (
+              <StickerButton variant={ButtonVariant.Plain} onClick={() => dispatch({ type: "setStart", start: HERE })} className="self-start">
+                現在地から歩く
+              </StickerButton>
+            )}
+            <PlaceField
+              id={DEST_ID}
+              label="行き先"
+              placeholder="例：上野公園"
+              value={state.dest}
+              onType={(dest) => dispatch({ type: "setDest", dest })}
+              onPick={(place) => dispatch({ type: "pickPlace", field: "dest", ...place })}
+              suggest={suggest?.dest}
+            />
+            <p className="font-note text-xs text-ink-soft">
+              {state.start === HERE ? "現在地は約1kmの範囲に丸めてAIに伝えます（正確な位置は送りません）" : "出発地と行き先の名前をAIに伝えます"}
+            </p>
+          </>
         ) : null}
         {question.id === Question.Mood ? (
           <MoodPicker

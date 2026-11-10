@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CHECKPOINTS, initialWalk, Screen, type WalkState } from "../flow";
@@ -51,5 +51,34 @@ describe("MemoryScreen", () => {
     rerender(<MemoryScreen state={STATE} dispatch={vi.fn()} onOpenFeed={onOpenFeed} />);
     fireEvent.click(screen.getByRole("button", { name: "ともだちの寄り道を見る" }));
     expect(onOpenFeed).toHaveBeenCalledOnce();
+  });
+
+  it("歩き終えたら「ゴール！」のスコア欄に合計と内訳を出す", () => {
+    render(<MemoryScreen state={STATE} dispatch={vi.fn()} />);
+    const score = screen.getByRole("region", { name: "ゴール！" });
+    // 達成 3 か所 30 + 写真 2 枚 10 + メモ 2 件 10 + 全地点クリア 10
+    expect(within(score).getByText(/この寄り道で \+60 pt/)).toBeInTheDocument();
+    const lines = within(score).getByRole("list", { name: "ポイントの内訳" });
+    expect(within(lines).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "地点の達成 3 か所+30",
+      "写真 2 枚+10",
+      "ひとことメモ 2 件+10",
+      "全地点クリア+10",
+    ]);
+  });
+
+  it("演出ありのときは大きな数字が 0 から数え上がり、最後は合計で止まる", () => {
+    render(<MemoryScreen state={STATE} dispatch={vi.fn()} celebrate />);
+    const counter = screen.getByTestId("score-counter");
+    expect(counter).toHaveAttribute("aria-hidden", "true");
+    expect(counter).toHaveTextContent("+0");
+
+    act(() => vi.advanceTimersByTime(LONG_ENOUGH_MS));
+    expect(counter).toHaveTextContent("+60");
+  });
+
+  it("演出なしのとき（タブから戻ったときなど）は最初から合計を出す", () => {
+    render(<MemoryScreen state={STATE} dispatch={vi.fn()} celebrate={false} />);
+    expect(screen.getByTestId("score-counter")).toHaveTextContent("+60");
   });
 });

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuestFailure } from "@/lib/quests";
 
-import { fetchQuestsFromApi, requestQuests, toWalkQuests } from "./api";
+import { fetchQuestsFromApi, requestQuests, startForAi, toWalkQuests } from "./api";
 import { moodById } from "./content";
 import { MoodId } from "./flow";
 
@@ -45,6 +45,15 @@ describe("fetchQuestsFromApi", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/quests");
     expect(JSON.parse(init.body)).toEqual({ dest: "上野公園", mood: 2, budget: 2 });
+  });
+
+  it("出発地の名前を送る。現在地は座標を約1km単位に丸めた文にして送る", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ quests: [apiQuest(1), apiQuest(2), apiQuest(3)] })));
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchQuestsFromApi({ dest: "上野公園", mood: MoodId.Quiet, budget: 20, start: " 神田駅 " }, new AbortController().signal);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ dest: "上野公園", mood: 0, budget: 1, start: "神田駅" });
+    expect(startForAi("現在地", { lat: 35.66789, lng: 139.65123 })).toBe("現在地（北緯35.67・東経139.65付近）");
+    expect(startForAi("神田駅", { lat: 35.69, lng: 139.77 })).toBe("神田駅");
   });
 
   it("サーバーがエラーを返したら null にする", async () => {

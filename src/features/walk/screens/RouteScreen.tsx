@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-import GoogleRouteMap from "@/components/RouteMap";
+import GoogleRouteMap, { type EndsMissing } from "@/components/RouteMap";
 import { MAPS_API_KEY } from "@/lib/google-maps";
 import { QuestFailure } from "@/lib/quests";
-import { IconName, IconSticker, ScreenHeading, Tone } from "@/components/sticker";
+import { ButtonVariant, IconName, IconSticker, ScreenHeading, StickerButton, Tone } from "@/components/sticker";
 
+import { MapResizeHandle, useMapHeight } from "../components/MapResizeHandle";
 import { MapVariant, RouteMap } from "../components/RouteMap";
 import { questsOf } from "../content";
-import { eta, QuestSource, type WalkAction, type WalkState } from "../flow";
+import { eta, HERE, QuestSource, type WalkAction, type WalkState } from "../flow";
 import { RouteStops } from "../route-stops/RouteStops";
 import { summarizeLegs, type Leg } from "../terrain/legs";
 import { loadTerrainGrids } from "../terrain/grids";
@@ -60,6 +61,12 @@ export const sourceNotice = (plan: WalkState["plan"]): string | null => {
 };
 const BACK_SIZE = 44;
 
+/** 出発地・行き先が地図で見つからなかったときの知らせ。 */
+const missingMessage = (missing: EndsMissing, state: WalkState): string => {
+  const names = [missing.start ? `出発地「${state.start}」` : null, missing.goal ? `行き先「${state.dest}」` : null].filter(Boolean).join("と");
+  return `${names}が地図で見つかりませんでした。駅名や施設の正式な名前で入れ直してください（地図には別の場所で代わりにルートを描いていません）`;
+};
+
 type DrawnRoutes = {
   direct: google.maps.LatLngLiteral[];
   detour: google.maps.LatLngLiteral[];
@@ -92,22 +99,30 @@ const useLegs = (routes: DrawnRoutes | null): readonly Leg[] => {
 export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenProps): React.ReactElement => {
   const [mapFailed, setMapFailed] = useState(false);
   const [routes, setRoutes] = useState<DrawnRoutes | null>(null);
+  const [located, setLocated] = useState<readonly boolean[] | undefined>(undefined);
+  const [missing, setMissing] = useState<EndsMissing | null>(null);
   const quests = questsOf(state);
   const useGoogleMap = realMap && MAPS_API_KEY !== "" && !mapFailed;
   const notice = sourceNotice(state.plan);
   const legs = useLegs(useGoogleMap ? routes : null);
   const extra = eta(state.budget).extra;
+  const mapHeight = useMapHeight();
 
   return (
     <div className="flex flex-1 flex-col">
       <ScreenHeading className="sr-only">寄り道ルート</ScreenHeading>
-      <div className="relative h-56 shrink-0 overflow-hidden border-b border-line">
+      <div className="relative shrink-0 overflow-hidden border-b border-line" style={{ height: mapHeight.height }}>
         {useGoogleMap ? (
           <GoogleRouteMap
             dest={state.dest}
             places={state.plan?.quests.map((q) => q.checkpoint)}
             step={state.step}
             onOrder={(order) => dispatch({ type: "reorder", order })}
+            onLocated={setLocated}
+            onEndsMissing={setMissing}
+            startName={state.start === HERE ? undefined : state.start}
+            startAt={state.startAt}
+            goalAt={state.destAt}
             onRoutes={setRoutes}
             onError={() => setMapFailed(true)}
             fitPadding={{ top: 56, right: 32, bottom: 24, left: 32 }}
@@ -125,7 +140,17 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
         </button>
       </div>
 
+      <MapResizeHandle height={mapHeight.height} min={mapHeight.min} max={mapHeight.max} onChange={mapHeight.setHeight} />
+
       <div className="flex flex-col gap-5 px-5 pt-5 pb-10">
+        {missing ? (
+          <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-danger bg-danger-surface px-4 py-3.5">
+            <p className="font-note text-sm leading-relaxed text-ink">{missingMessage(missing, state)}</p>
+            <StickerButton variant={ButtonVariant.Plain} onClick={() => dispatch({ type: "backToInput" })} className="self-start">
+              {missing.goal ? "行き先を入れ直す" : "出発地を入れ直す"}
+            </StickerButton>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-line px-3 py-1 font-note text-xs text-ink-soft">
             {state.dest.trim() || "目的地"}まで +{extra}分
@@ -138,6 +163,7 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
           quests={quests}
           step={state.step}
           legs={legs}
+          located={useGoogleMap ? located : undefined}
           onCapture={() => dispatch({ type: "openCapture" })}
           onFound={() => dispatch({ type: "found" })}
         />

@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const limited = rateLimitResponse(questsLimiter, req, "quests");
   if (limited) return limited;
 
-  let body: { dest?: unknown; mood?: unknown; budget?: unknown; care?: unknown };
+  let body: { dest?: unknown; start?: unknown; mood?: unknown; budget?: unknown; care?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -29,7 +29,10 @@ export async function POST(req: Request) {
   const dest = typeof body.dest === "string" ? body.dest.trim().replace(/[<>]/g, "") : "";
   const mood = MOODS[Number(body.mood)];
   const extra = EXTRA[Number(body.budget)];
-  if (!dest || dest.length > 60 || !mood || !extra) {
+  // 出発地は任意。送られたときは目的地と同じく文字列・60字以内に限り、山かっこを取り除く
+  const start = typeof body.start === "string" ? body.start.trim().replace(/[<>]/g, "") : "";
+  const badStart = body.start !== undefined && (typeof body.start !== "string" || start.length > 60);
+  if (!dest || dest.length > 60 || badStart || !mood || !extra) {
     return NextResponse.json({ error: "invalid input" }, { status: 400 });
   }
 
@@ -37,7 +40,7 @@ export async function POST(req: Request) {
   const rawCare = (body.care ?? {}) as { slope?: unknown; shade?: unknown };
   const care = { slope: rawCare.slope === true, shade: rawCare.shade === true };
 
-  const result = await generateQuests(vertexFromEnv(), { dest, moodLabel: mood.label, moodDesc: mood.desc, extraMin: extra, care });
+  const result = await generateQuests(vertexFromEnv(), { dest, ...(start ? { start } : {}), moodLabel: mood.label, moodDesc: mood.desc, extraMin: extra, care });
   if (!result.ok) return NextResponse.json({ error: ERROR_TEXT[result.failure], reason: result.failure }, { status: result.status });
   return NextResponse.json({ quests: result.quests });
 }

@@ -14,6 +14,22 @@ describe("eta", () => {
 });
 
 describe("walkReducer", () => {
+  it("出発地・行き先を候補から選ぶと座標も持ち、打ち直すと座標を捨てる", () => {
+    const at = { lat: 35.68, lng: 139.76 };
+    const picked = run([
+      { type: "pickPlace", field: "start", name: "神田駅", at: { lat: 35.69, lng: 139.77 } },
+      { type: "pickPlace", field: "dest", name: "東京駅", at },
+    ]);
+    expect(picked).toMatchObject({ start: "神田駅", startAt: { lat: 35.69, lng: 139.77 }, dest: "東京駅", destAt: at });
+    const retyped = run([{ type: "setStart", start: "神田" }, { type: "setDest", dest: "東京" }], picked);
+    expect(retyped).toMatchObject({ start: "神田", startAt: null, dest: "東京", destAt: null });
+  });
+
+  it("出発地が空のままではルート作成に進まない", () => {
+    const s = walkReducer({ ...initialWalk, start: " ", dest: "上野公園" }, { type: "start" });
+    expect(s.screen).toBe(Screen.Input);
+  });
+
   it("行き先が空のままではルート作成に進まない", () => {
     const s = run([{ type: "setDest", dest: "  " }, { type: "start" }]);
     expect(s.screen).toBe(Screen.Input);

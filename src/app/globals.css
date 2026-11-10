@@ -75,6 +75,10 @@
 
   --animate-jelly: none;
   --animate-pop-in: pop-in 200ms var(--ease-pop);
+  /* 時間差で順に出すもの用。遅らせている間も消えたままにする（both） */
+  --animate-rise: pop-in 320ms var(--ease-pop) both;
+  /* ハンコを押す動き。上から押し付けて止まる（弾ませない） */
+  --animate-stamp-in: stamp-in 360ms var(--ease-pop) both;
   --animate-needle-wiggle: none;
   --animate-needle-spin: needle-spin 1.6s linear infinite;
   --animate-bot-idle: bot-bob 3.2s ease-in-out infinite;
@@ -153,6 +157,11 @@
 @keyframes pop-in {
   0% { translate: 0 8px; opacity: 0; }
   100% { translate: 0 0; opacity: 1; }
+}
+
+@keyframes stamp-in {
+  0% { scale: 1.6; opacity: 0; }
+  100% { scale: 1; opacity: 1; }
 }
 
 @keyframes bot-bob {
