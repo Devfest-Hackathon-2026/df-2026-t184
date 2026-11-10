@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { cx } from "./tokens";
+
 type ScreenHeadingProps = {
   children: React.ReactNode;
   className?: string;
@@ -16,7 +18,7 @@ export const ScreenHeading = ({ children, className }: ScreenHeadingProps): Reac
     ref.current?.focus();
   }, []);
   return (
-    <h1 ref={ref} tabIndex={-1} className={className}>
+    <h1 ref={ref} tabIndex={-1} className={cx("outline-none", className)}>
       {children}
     </h1>
   );

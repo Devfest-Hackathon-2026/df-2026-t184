@@ -23,19 +23,18 @@ export const MEMORY_PHOTO_NOTE = "写真は見本の絵です（実際には撮�
 
 /** 共有する思い出カード。写真の帯、見本の文章、地点ごとのメモ、達成のハンコを 1 枚にまとめる。 */
 export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, walkedOn }: MemoryCardProps): React.ReactElement => (
-  <StickerCard className="flex flex-col gap-4 pt-8">
-
+  <StickerCard className="flex flex-col gap-5 px-5 pt-6 pb-5">
     <header className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-1">
         <p className="font-hand text-xs text-ink-soft">{walkedOn}</p>
         <h2 className="font-hand text-xl leading-snug text-ink">{dest}への寄り道</h2>
       </div>
-      <div className="size-24 shrink-0 overflow-hidden rounded-(--radius-chip) border border-line shadow-sticker-sm">
+      <div className="size-20 shrink-0 overflow-hidden rounded-xl border border-line">
         <RouteMap step={CHECKPOINTS} dest={dest} variant={MapVariant.Mini} />
       </div>
     </header>
 
-    <ul className="grid grid-cols-3 gap-3 px-1">
+    <ul className="grid grid-cols-3 gap-2">
       {quests.map((quest, i) => (
         <li
           key={quest.checkpoint}
@@ -53,9 +52,9 @@ export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, wal
       ))}
     </ul>
 
-    <p className="font-note text-base leading-loose text-ink">{mood.essay}</p>
+    <p className="font-note text-sm leading-relaxed text-ink">{mood.essay}</p>
 
-    <dl className="flex flex-col gap-2 rounded-(--radius-chip) border border-dashed border-line p-3">
+    <dl className="flex flex-col gap-3 rounded-xl border border-dashed border-line px-4 py-3">
       {quests.map((quest, i) => (
         <div key={quest.checkpoint} className="flex flex-col">
           <dt className={cx("self-start rounded-sm px-1 font-hand text-sm text-ink", TONE_FILL[quest.tone])}>{quest.checkpoint}</dt>
@@ -64,14 +63,14 @@ export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, wal
       ))}
     </dl>
 
-    <footer className="flex items-center justify-between gap-3">
-      <div className="flex flex-col gap-3">
+    <footer className="flex items-center gap-4">
+      <div className="min-w-0 flex-1">
         <div className="flex flex-wrap gap-2">
           <span className={cx(CHIP_CLASS, TONE_FILL[mood.tone])}>{mood.label}</span>
           <span className={cx(CHIP_CLASS, "bg-pink")}>+{extraMinutes}分（目安）</span>
         </div>
       </div>
-      <Stamp className="mr-2 shrink-0">
+      <Stamp className="flex-none">
         寄り道
         <br />
         達成
@@ -80,7 +79,7 @@ export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, wal
       </Stamp>
     </footer>
 
-    <ul className="flex flex-col gap-1 text-xs text-ink-soft">
+    <ul className="flex flex-col gap-1 border-t border-line pt-3 font-note text-xs leading-relaxed text-ink-soft">
       <li>{MEMORY_PHOTO_NOTE}</li>
       <li>{MEMORY_ESSAY_NOTE}</li>
       <li>{MEMORY_MINUTES_NOTE}</li>

@@ -7,13 +7,12 @@ import { MAPS_API_KEY } from "@/lib/google-maps";
 import { QuestFailure } from "@/lib/quests";
 import { IconName, IconSticker, ScreenHeading, Tone } from "@/components/sticker";
 
-import { QuestSheet } from "../components/QuestSheet";
 import { MapVariant, RouteMap } from "../components/RouteMap";
 import { questsOf } from "../content";
-import { CHECKPOINTS, QuestSource, type WalkAction, type WalkState } from "../flow";
+import { eta, QuestSource, type WalkAction, type WalkState } from "../flow";
+import { RouteStops } from "../route-stops/RouteStops";
+import { summarizeLegs, type Leg } from "../terrain/legs";
 import { loadTerrainGrids } from "../terrain/grids";
-import { RouteTerrainCard, TerrainStatus } from "../terrain/RouteTerrainCard";
-import { summarizeTerrain, type RouteTerrain } from "../terrain/summary";
 
 type RouteScreenProps = {
   state: WalkState;
@@ -22,7 +21,6 @@ type RouteScreenProps = {
   realMap?: boolean;
 };
 
-const LAST_INDEX = CHECKPOINTS - 1;
 
 /** AI が使えなかった原因ごとの、見本に切り替えたことの知らせ。 */
 const FALLBACK_REASON: Record<QuestFailure, string> = {
@@ -62,61 +60,48 @@ export const sourceNotice = (plan: WalkState["plan"]): string | null => {
 };
 const BACK_SIZE = 44;
 
-/** 凡例の線見本。地図と同じ色・太さで、点線が寄り道、薄い線が最短。 */
-const LegendLine = ({ dotted }: { dotted: boolean }): React.ReactElement => (
-  <svg aria-hidden="true" viewBox="0 0 24 8" className="h-2 w-6 shrink-0" fill="none" strokeLinecap="round">
-    {dotted ? (
-      <path d="M2 4 H22" stroke="var(--color-pink-deep)" strokeWidth="4" strokeDasharray="0.1 6" />
-    ) : (
-      <path d="M2 4 H22" stroke="var(--color-ink-soft)" strokeWidth="2.5" />
-    )}
-  </svg>
-);
+type DrawnRoutes = {
+  direct: google.maps.LatLngLiteral[];
+  detour: google.maps.LatLngLiteral[];
+  straight: boolean;
+  /** 出発地・地点1〜3・目的地。 */
+  stops: google.maps.LatLngLiteral[];
+};
 
-type DrawnRoutes = { direct: google.maps.LatLngLiteral[]; detour: google.maps.LatLngLiteral[]; straight: boolean };
-type TerrainResult = { routes: DrawnRoutes; failed: boolean; detour?: RouteTerrain; direct?: RouteTerrain };
-
-/** 地図に描いたルートから、坂と日陰の推定を作る。地図が使えなければ NoRoute。 */
-const useRouteTerrain = (routes: DrawnRoutes | null, mapUsable: boolean) => {
-  const [result, setResult] = useState<TerrainResult | null>(null);
+/** 地図に描いた寄り道ルートを、地点ごとの区間に分けて坂・日陰・徒歩時間を出す。読み込み前・失敗時は空。 */
+const useLegs = (routes: DrawnRoutes | null): readonly Leg[] => {
+  const [result, setResult] = useState<{ routes: DrawnRoutes; legs: Leg[] } | null>(null);
   useEffect(() => {
     if (!routes) return;
     let cancelled = false;
     loadTerrainGrids()
       .then((g) => {
-        if (cancelled) return;
-        setResult({
-          routes,
-          failed: false,
-          detour: summarizeTerrain(routes.detour, g.elev, g.shade),
-          direct: summarizeTerrain(routes.direct, g.elev, g.shade),
-        });
+        if (!cancelled) setResult({ routes, legs: summarizeLegs(routes.detour, routes.stops, g.elev, g.shade) });
       })
       .catch(() => {
-        if (!cancelled) setResult({ routes, failed: true });
+        if (!cancelled) setResult({ routes, legs: [] });
       });
     return () => {
       cancelled = true;
     };
   }, [routes]);
-  if (!mapUsable) return { status: TerrainStatus.NoRoute };
-  if (!routes || result?.routes !== routes) return { status: TerrainStatus.Loading };
-  if (result.failed) return { status: TerrainStatus.Failed };
-  return { status: TerrainStatus.Ready, detour: result.detour, direct: result.direct, straight: routes.straight };
+  return routes && result?.routes === routes ? result.legs : [];
 };
 
-/** 地図と、いまの地点のクエスト・坂と日陰を上下に並べる画面。 */
+/** 小さめの地図と、通る地点のリストを上下に並べる画面。 */
 export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenProps): React.ReactElement => {
   const [mapFailed, setMapFailed] = useState(false);
   const [routes, setRoutes] = useState<DrawnRoutes | null>(null);
-  const quest = questsOf(state)[Math.min(state.step, LAST_INDEX)];
+  const quests = questsOf(state);
   const useGoogleMap = realMap && MAPS_API_KEY !== "" && !mapFailed;
   const notice = sourceNotice(state.plan);
-  const terrain = useRouteTerrain(routes, useGoogleMap);
+  const legs = useLegs(useGoogleMap ? routes : null);
+  const extra = eta(state.budget).extra;
+
   return (
     <div className="flex flex-1 flex-col">
       <ScreenHeading className="sr-only">寄り道ルート</ScreenHeading>
-      <div className="relative min-h-72 flex-1 overflow-hidden border-b border-line">
+      <div className="relative h-56 shrink-0 overflow-hidden border-b border-line">
         {useGoogleMap ? (
           <GoogleRouteMap
             dest={state.dest}
@@ -125,6 +110,7 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
             onOrder={(order) => dispatch({ type: "reorder", order })}
             onRoutes={setRoutes}
             onError={() => setMapFailed(true)}
+            fitPadding={{ top: 56, right: 32, bottom: 24, left: 32 }}
           />
         ) : (
           <RouteMap step={state.step} dest={state.dest} variant={MapVariant.Full} className="absolute inset-0" />
@@ -133,51 +119,40 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
           type="button"
           aria-label="入力に戻る"
           onClick={() => dispatch({ type: "backToInput" })}
-          className="absolute top-4 left-4 rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:focus-ring"
+          className="absolute top-3 left-3 rounded-full transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:focus-ring"
         >
           <IconSticker name={IconName.Back} tone={Tone.Sky} size={BACK_SIZE} />
         </button>
-        <div className="absolute top-4 right-4 flex border border-line flex-col gap-1 rounded-(--radius-chip) bg-sticker px-3 py-2 shadow-sticker-sm">
-          <p className="flex items-center gap-2 font-note text-xs text-ink">
-            <LegendLine dotted />
-            点線が寄り道
-          </p>
-          <p className="flex items-center gap-2 font-note text-xs text-ink">
-            <LegendLine dotted={false} />
-            線が最短
-          </p>
-          {/* 混雑は Google の地図でも計算していないので、イメージ図のときだけ出す。 */}
-          {useGoogleMap ? null : <p className="font-note text-xs text-coral-ink">混雑を回避（イメージ）</p>}
-        </div>
       </div>
 
-      <div className="flex flex-col gap-5 px-4 pt-5 pb-10">
-        {notice || !useGoogleMap ? (
-          <div className="flex flex-col gap-1.5">
-            {notice ? (
-              <p role="status" className="font-note text-xs leading-relaxed text-ink-soft">
-                {notice}
-              </p>
-            ) : null}
-            {useGoogleMap ? null : <p className="font-note text-xs leading-relaxed text-ink-soft">{HAND_DRAWN_MAP_NOTE}</p>}
-          </div>
-        ) : null}
+      <div className="flex flex-col gap-5 px-5 pt-5 pb-10">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-line px-3 py-1 font-note text-xs text-ink-soft">
+            {state.dest.trim() || "目的地"}まで +{extra}分
+          </span>
+          {state.care.slope ? <span className="rounded-full border border-accent bg-accent-soft px-3 py-1 font-note text-xs text-ink">坂少なめ</span> : null}
+          {state.care.shade ? <span className="rounded-full border border-accent bg-accent-soft px-3 py-1 font-note text-xs text-ink">日陰多め</span> : null}
+        </div>
 
-        <QuestSheet
-          quest={quest}
+        <RouteStops
+          quests={quests}
           step={state.step}
-          mood={state.mood}
+          legs={legs}
           onCapture={() => dispatch({ type: "openCapture" })}
           onFound={() => dispatch({ type: "found" })}
         />
 
-        <RouteTerrainCard
-          status={terrain.status}
-          detour={terrain.detour}
-          direct={terrain.direct}
-          straight={terrain.straight}
-          care={state.care}
-        />
+        <div className="flex flex-col gap-1.5">
+          {notice ? (
+            <p role="status" className="font-note text-xs leading-relaxed text-ink-soft">
+              {notice}
+            </p>
+          ) : null}
+          {useGoogleMap ? null : <p className="font-note text-xs leading-relaxed text-ink-soft">{HAND_DRAWN_MAP_NOTE}</p>}
+          <p className="font-note text-xs leading-relaxed text-ink-soft">
+            地図の点線が寄り道、線が最短。坂・日陰は夏の午前10時の推定値（公開データから計算、現地未検証・段差や道幅は分かりません）
+          </p>
+        </div>
 
         <a
           href="/terrain"

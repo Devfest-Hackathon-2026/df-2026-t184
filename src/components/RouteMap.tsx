@@ -63,7 +63,7 @@ type Props = {
   onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
   onError: () => void;
   /** 地図に描いた最短・寄り道ルートの形。徒歩ルートが取れなかったときは直線（straight: true）。 */
-  onRoutes?: (routes: { direct: LatLng[]; detour: LatLng[]; straight: boolean }) => void;
+  onRoutes?: (routes: { direct: LatLng[]; detour: LatLng[]; straight: boolean; stops: LatLng[] }) => void;
   fixed?: FixedRoute;
   // ルートを収めるときの余白。省略時は左上の戻るボタンを避ける /walk 用
   fitPadding?: google.maps.Padding;
@@ -226,7 +226,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError, onRoute
         if (cancelled) return;
         if (direct) directLine.setPath(direct);
         if (detour) detourLine.setPath(detour);
-        onRoutesRef.current?.({ direct: direct ?? [start, goal], detour: detour ?? path, straight: !direct || !detour });
+        onRoutesRef.current?.({ direct: direct ?? [start, goal], detour: detour ?? path, straight: !direct || !detour, stops: path });
       } catch (e) {
         console.error(e);
         if (!cancelled) onError();
