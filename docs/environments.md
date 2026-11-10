@@ -102,7 +102,8 @@ stg / prod で同じ Auth を共有するため、同じアカウントが両環
 ## 請求 / 予算（変更しないこと）
 
 既存の予算アラート 15 件（全体累計 3,000 JPY、月次純額 100 JPY、
-サービス別累計 500 JPY × 13）。通知先 `yamadamei0512@gmail.com`。
+サービス別累計 500 JPY × 13）がある。通知は Cloud Monitoring のメール通知チャネルで
+`yamadamei0512@gmail.com`、`shangtianminren0@gmail.com`、`kuma.shun.2343@gmail.com` に届く。
 これらの設定は変更しない。
 
 ## ローカル開発
