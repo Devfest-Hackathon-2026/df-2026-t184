@@ -58,6 +58,8 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   const [feedFromMemory, setFeedFromMemory] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(onboarding);
   const [album, setAlbum] = useState<readonly AlbumEntry[]>(SAMPLE_ALBUM);
+  // スコアの演出は歩き終えた直後の 1 回だけ。タブから戻ったときは止まった状態で出す。
+  const [celebrate, setCelebrate] = useState(false);
   const request = useRef<AbortController | null>(null);
 
   // 探索中の演出はタイマー（外部の時計）との同期なので effect で進める。
@@ -97,7 +99,10 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   const dispatch = (action: WalkAction): void => {
     // 思い出カードに着いた瞬間を、イベントの中で 1 回だけ拾ってアルバムに残す。
     const next = walkReducer(state, action);
-    if (state.screen !== Screen.Memory && next.screen === Screen.Memory) setAlbum((prev) => [albumEntryOf(next), ...prev]);
+    if (state.screen !== Screen.Memory && next.screen === Screen.Memory) {
+      setAlbum((prev) => [albumEntryOf(next), ...prev]);
+      setCelebrate(true);
+    }
     rawDispatch(action);
     if (action.type === "start") requestQuests();
     if (action.type === "backToInput" || action.type === "restart") request.current?.abort();
@@ -105,11 +110,13 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
 
   const openFeedFromMemory = (): void => {
     setTab(Tab.Feed);
+    setCelebrate(false);
     setFeedFromMemory(true);
   };
 
   const changeTab = (next: Tab): void => {
     setTab(next);
+    setCelebrate(false);
     setFeedFromMemory(false);
   };
 
@@ -124,7 +131,7 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
       case Screen.Capture:
         return <CaptureScreen state={state} dispatch={dispatch} />;
       case Screen.Memory:
-        return <MemoryScreen state={state} dispatch={dispatch} onOpenFeed={openFeedFromMemory} />;
+        return <MemoryScreen state={state} dispatch={dispatch} onOpenFeed={openFeedFromMemory} celebrate={celebrate} />;
     }
   };
 
