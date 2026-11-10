@@ -1,6 +1,7 @@
 // Google Maps JavaScript API を1回だけ読み込む。
 // キーはブラウザに公開される前提なので、Cloud Console で
-// 「HTTP リファラー制限」と「Maps JavaScript API / Geocoding API のみ許可」を必ず設定すること。
+// 「HTTP リファラー制限」と「Maps JavaScript API / Geocoding API / Routes API / Places API (New) のみ許可」を必ず設定すること
+// （Places API (New) は出発地・行き先の入力候補に使う。docs/DECISIONS.md の D-009）。
 
 export const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 

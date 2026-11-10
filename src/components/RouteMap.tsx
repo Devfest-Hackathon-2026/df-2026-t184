@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { pickCheckpoints, type FixedRoute, type LatLng } from "@/lib/checkpoints";
 import { loadGoogleMaps, onMapsAuthFailure } from "@/lib/google-maps";
 
-type LatLng = google.maps.LatLngLiteral;
-
 /** 地点を固定したルート。現在地と地名検索を使わない（位置の許可を求めず、Geocoding も呼ばない）。 */
-export type FixedRoute = { start: LatLng; checkpoints: readonly [LatLng, LatLng, LatLng]; goal: LatLng };
+export type { FixedRoute };
 
 // 位置情報が使えない・目的地が見つからない場合の既定値（サンプル）
 const DEFAULT_START: LatLng = { lat: 35.6812, lng: 139.7671 }; // 東京駅
@@ -25,24 +24,27 @@ function getStart(): Promise<LatLng> {
   });
 }
 
-// strict: 一部だけ一致した結果（partial_match）は捨てる。Gemini が作った存在しない場所名を検索すると、
-// 後ろに付けた目的地名だけに一致して、目的地と同じ位置が返ってくるため
-async function geocode(text: string, strict = false): Promise<LatLng | null> {
+/** 寄り道地点を探すときに優先する、目的地のまわりの範囲（緯度・経度の幅。約3km）。 */
+const NEAR_GOAL_DEG = 0.03;
+
+// strict: 一部だけ一致した結果（partial_match）は捨てる。存在しない場所名が、地名の一部（区・町など）にだけ一致するため。
+// near: その付近の結果を優先する（範囲外を除外はしない。遠すぎる結果は pickCheckpoints が捨てる）
+async function geocode(text: string, { strict = false, near }: { strict?: boolean; near?: LatLng } = {}): Promise<LatLng | null> {
   const { Geocoder } = (await google.maps.importLibrary("geocoding")) as google.maps.GeocodingLibrary;
+  const bounds = near && {
+    south: near.lat - NEAR_GOAL_DEG,
+    west: near.lng - NEAR_GOAL_DEG,
+    north: near.lat + NEAR_GOAL_DEG,
+    east: near.lng + NEAR_GOAL_DEG,
+  };
   try {
-    const res = await new Geocoder().geocode({ address: text || DEFAULT_DEST, region: "JP" });
+    const res = await new Geocoder().geocode({ address: text || DEFAULT_DEST, region: "JP", ...(bounds ? { bounds } : {}) });
     if (strict && res.results[0]?.partial_match) return null;
     const loc = res.results[0]?.geometry.location;
     return loc ? { lat: loc.lat(), lng: loc.lng() } : null;
   } catch {
     return null;
   }
-}
-
-function distKm(a: LatLng, b: LatLng): number {
-  const dy = (a.lat - b.lat) * 111;
-  const dx = (a.lng - b.lng) * 111 * Math.cos((a.lat * Math.PI) / 180);
-  return Math.hypot(dx, dy);
 }
 
 // 出発地→目的地の間に、横にずらしたチェックポイントを3つ置く（仮置き。ルート生成APIにつなぐまでのサンプル）
@@ -61,6 +63,15 @@ type Props = {
   places?: string[]; // チェックポイント名（Gemini の提案）。地名検索で座標にする
   step: number; // 0..3（達成済みチェックポイント数）
   onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
+  /** 並べ替えたあとの各チェックポイントが地名検索で見つかったか。false の地点は仮の位置に「?」のピンを立てる。 */
+  onLocated?: (located: readonly boolean[]) => void;
+  /** 出発地・行き先が地図で見つからなかったとき。このときはルートを描かない。 */
+  onEndsMissing?: (missing: EndsMissing) => void;
+  /** 出発地の名前（現在地のときは省略）。startAt がなければ地名検索する。 */
+  startName?: string;
+  /** 候補から選んだ出発地・目的地の座標。あれば地名検索も現在地も使わない。 */
+  startAt?: LatLng | null;
+  goalAt?: LatLng | null;
   onError: () => void;
   /** 地図に描いた最短・寄り道ルートの形。徒歩ルートが取れなかったときは直線（straight: true）。 */
   onRoutes?: (routes: { direct: LatLng[]; detour: LatLng[]; straight: boolean; stops: LatLng[] }) => void;
@@ -100,42 +111,49 @@ function walkingRouteCached(origin: LatLng, destination: LatLng, via: LatLng[] =
   return hit;
 }
 
-// 出発地→目的地の線の上で、どれくらい進んだ位置か（0=出発地、1=目的地）
-function progress(a: LatLng, b: LatLng, p: LatLng): number {
-  const dx = b.lng - a.lng;
-  const dy = b.lat - a.lat;
-  const len2 = dx * dx + dy * dy;
-  return len2 === 0 ? 0 : ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / len2;
+/** 出発地・目的地の指定。座標があればそれを使い、なければ名前を地名検索する。名前もなければ現在地を使う。 */
+type Ends = { startName?: string; startAt?: LatLng | null; goalAt?: LatLng | null };
+
+// 出発地・目的地と、提案された場所の地名検索から、出発地・チェックポイント3つ・目的地を決める
+/** 出発地・行き先のどちらが地図で見つからなかったか。 */
+export type EndsMissing = { start: boolean; goal: boolean };
+
+type Resolved = { route: FixedRoute; order: number[] | null; located: readonly boolean[] } | { missing: EndsMissing };
+
+async function resolveRoute(dest: string, placesKey: string, { startName, startAt, goalAt }: Ends = {}): Promise<Resolved> {
+  const [named, end] = await Promise.all([
+    startAt ?? (startName ? geocode(startName, { strict: true }) : null),
+    goalAt ?? geocode(dest),
+  ]);
+  // 見つからない出発地・行き先を、別の場所（上野公園など）で黙って代わりにしない。呼び出し側に知らせて入れ直してもらう
+  const startMissing = !!startName && !named;
+  if (startMissing || !end) return { missing: { start: startMissing, goal: !end } };
+  const start = named ?? (await getStart());
+  const goal = end;
+  // 提案された場所を、目的地のまわりを優先して地名で探す。目的地名を付け足すと、その部分にだけ一致して
+  // partial_match になり、実在する場所まで捨ててしまうため、地点名だけで探す
+  const found = placesKey ? await Promise.all(placesKey.split("|").map((p) => geocode(p, { strict: true, near: goal }))) : [];
+  // 見つからない・遠すぎるものは仮の位置にし、located で呼び出し側に知らせる
+  return pickCheckpoints({ start, goal, fallback: sampleCheckpoints(start, goal), found });
 }
 
-// 現在地と、目的地・提案された場所の地名検索から、出発地・チェックポイント3つ・目的地を決める
-async function resolveRoute(dest: string, placesKey: string): Promise<{ route: FixedRoute; order: number[] }> {
-  const [start, end] = await Promise.all([getStart(), geocode(dest)]);
-  const goal = end ?? { lat: 35.7148, lng: 139.7745 }; // 上野公園付近
-  // 提案された場所を目的地の周辺で検索。見つからない・遠すぎるものは仮の位置にする
-  const fallback = sampleCheckpoints(start, goal);
-  const found = placesKey
-    ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`, true)))
-    : [];
-  const found3 = fallback.map((f, i) => {
-    const g = found[i];
-    // 目的地と同じ位置（50m未満）は、場所が見つからず目的地に一致しただけとみなして捨てる
-    return g && distKm(g, goal) < 5 && distKm(g, goal) > 0.05 ? g : f;
-  });
-  // 行ったり来たりしないよう、出発地から目的地へ向かう順に並べる（クエストの順番も呼び出し側で揃える）
-  const order = found3.map((_, i) => i).sort((x, y) => progress(start, goal, found3[x]) - progress(start, goal, found3[y]));
-  const [a, b, c] = order.map((i) => found3[i]);
-  return { route: { start, checkpoints: [a, b, c], goal }, order };
-}
-
-export default function RouteMap({ dest, places, step, onOrder, onError, onRoutes, fixed, fitPadding = { top: 100, right: 40, bottom: 40, left: 40 } }: Props) {
+export default function RouteMap({ dest, places, step, onOrder, onLocated, onEndsMissing, startName, startAt, goalAt, onError, onRoutes, fixed, fitPadding = { top: 100, right: 40, bottom: 40, left: 40 } }: Props) {
   const fixedRef = useRef(fixed);
   const fitPaddingRef = useRef(fitPadding);
   const onOrderRef = useRef(onOrder);
   onOrderRef.current = onOrder;
+  const onLocatedRef = useRef(onLocated);
+  onLocatedRef.current = onLocated;
+  const onEndsMissingRef = useRef(onEndsMissing);
+  onEndsMissingRef.current = onEndsMissing;
   const onRoutesRef = useRef(onRoutes);
   onRoutesRef.current = onRoutes;
   const placesKey = places?.join("|") ?? "";
+  const ends = { startName, startAt, goalAt };
+  const endsRef = useRef(ends);
+  endsRef.current = ends;
+  // 出発地・目的地が変わったときだけ引き直す（座標のオブジェクトが作り直されただけでは引き直さない）
+  const endsKey = JSON.stringify(ends);
   const el = useRef<HTMLDivElement>(null);
   const markers = useRef<{ cps: google.maps.marker.PinElement[]; me?: google.maps.marker.AdvancedMarkerElement; path: LatLng[] }>({ cps: [], path: [] });
   const stepRef = useRef(step);
@@ -156,9 +174,14 @@ export default function RouteMap({ dest, places, step, onOrder, onError, onRoute
           google.maps.importLibrary("marker") as Promise<google.maps.MarkerLibrary>,
         ]);
         const fixedRoute = fixedRef.current;
-        const resolved = fixedRoute ? { route: fixedRoute, order: null } : await resolveRoute(dest, placesKey);
+        const resolved = fixedRoute ? { route: fixedRoute, order: null, located: [true, true, true] } : await resolveRoute(dest, placesKey, endsRef.current);
         if (cancelled || !el.current) return;
+        if ("missing" in resolved) {
+          onEndsMissingRef.current?.(resolved.missing);
+          return;
+        }
         if (resolved.order) onOrderRef.current?.(resolved.order);
+        onLocatedRef.current?.(resolved.located);
         const { start, checkpoints, goal } = resolved.route;
         const cps = [...checkpoints];
         const path = [start, ...cps, goal];
@@ -202,8 +225,11 @@ export default function RouteMap({ dest, places, step, onOrder, onError, onRoute
         new AdvancedMarkerElement({ map, position: goal, content: new PinElement({ background: COLORS.amber, borderColor: "#fff", glyphColor: "#fff" }).element, title: "目的地" });
 
         markers.current.cps = cps.map((pos, i) => {
-          const pin = new PinElement({ glyph: String(i + 1), glyphColor: "#fff", borderColor: "#fff" });
-          new AdvancedMarkerElement({ map, position: pos, content: pin.element, title: `チェックポイント${i + 1}` });
+          // 地名検索で見つからなかった地点は、実際の場所ではないことが分かるよう「?」にする
+          const located = resolved.located[i];
+          const pin = new PinElement({ glyph: located ? String(i + 1) : "?", glyphColor: "#fff", borderColor: "#fff" });
+          const title = located ? `チェックポイント${i + 1}` : `チェックポイント${i + 1}（地図で見つからず、仮の位置）`;
+          new AdvancedMarkerElement({ map, position: pos, content: pin.element, title });
           return pin;
         });
 
@@ -238,7 +264,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError, onRoute
       ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dest, placesKey]);
+  }, [dest, placesKey, endsKey]);
 
   function paint(s: number) {
     const { cps, me, path } = markers.current;

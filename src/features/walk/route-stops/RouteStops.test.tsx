@@ -67,4 +67,15 @@ describe("通る地点のリスト", () => {
     expect(screen.getByText(/坂・日陰は上野〜谷中だけ/)).toBeInTheDocument();
     expect(screen.queryByText(/上り \d+m/)).not.toBeInTheDocument();
   });
+
+  it("地図で見つからなかった地点には、ピンが仮の位置だと出し、その前後の区間の坂・日陰を出さない", () => {
+    render(<RouteStops quests={QUESTS} step={0} legs={LEGS} located={[true, false, true]} onFound={() => {}} onCapture={() => {}} />);
+    const [first, second, third] = screen.getAllByRole("listitem");
+    expect(within(first).queryByText(/仮の位置/)).not.toBeInTheDocument();
+    expect(within(first).getByText("坂ほぼなし")).toBeInTheDocument();
+    expect(within(second).getByText(/地図で見つからず、ピンは仮の位置です/)).toBeInTheDocument();
+    // 仮の位置へ向かう区間・仮の位置から出る区間は、実際の道ではないので出さない
+    expect(within(second).queryByText(/上り|坂ほぼなし/)).not.toBeInTheDocument();
+    expect(within(third).queryByText(/上り|坂ほぼなし/)).not.toBeInTheDocument();
+  });
 });

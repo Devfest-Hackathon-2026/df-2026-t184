@@ -10,6 +10,8 @@ type RouteStopsProps = {
   step: number;
   /** 出発地→地点1→地点2→地点3→目的地 の 4 区間。まだ計算していなければ空。 */
   legs: readonly Leg[];
+  /** 各地点が地図の地名検索で見つかったか。false の地点はピンが仮の位置。省略時は全部見つかった扱い。 */
+  located?: readonly boolean[];
   onFound: () => void;
   onCapture: () => void;
 };
@@ -58,7 +60,7 @@ const Progress = ({ done, total }: { done: number; total: number }): React.React
 );
 
 /** 通る地点を縦に並べる。いまの地点だけを開いて、クエストと「記録する」「見つけた」を出す。 */
-export const RouteStops = ({ quests, step, legs, onFound, onCapture }: RouteStopsProps): React.ReactElement => {
+export const RouteStops = ({ quests, step, legs, located, onFound, onCapture }: RouteStopsProps): React.ReactElement => {
   const outside = legs.length > 0 && legs.every((l) => l.terrain.area === TerrainArea.Outside);
   return (
     <div className="flex flex-col gap-4">
@@ -73,6 +75,9 @@ export const RouteStops = ({ quests, step, legs, onFound, onCapture }: RouteStop
           const isCurrent = i === step;
           const isDone = i < step;
           const showQuest = isCurrent;
+          const isLocated = located?.[i] !== false;
+          // legs[i] は1つ前の地点（または出発地）からこの地点までの区間。どちらかが仮の位置なら実際の道ではない
+          const legIsReal = isLocated && (i === 0 || located?.[i - 1] !== false);
           return (
             <li key={quest.checkpoint + i} aria-current={isCurrent ? "step" : undefined} className="relative grid grid-cols-[28px_1fr] gap-3 pb-4">
               {i < quests.length - 1 ? <span aria-hidden="true" className="absolute top-8 bottom-0 left-[13px] border-l-2 border-dotted border-line" /> : null}
@@ -94,6 +99,7 @@ export const RouteStops = ({ quests, step, legs, onFound, onCapture }: RouteStop
                   )}
                 >
                   <p className={cx("font-note text-sm font-bold", isDone ? "text-ink-soft" : "text-ink")}>{quest.checkpoint}</p>
+                  {isLocated ? null : <p className="font-note text-xs text-ink-soft">地図で見つからず、ピンは仮の位置です（「?」のピン）</p>}
                   {showQuest ? (
                     <>
                       <h2 className="font-hand text-base leading-snug text-ink">{quest.title}</h2>
@@ -101,7 +107,7 @@ export const RouteStops = ({ quests, step, legs, onFound, onCapture }: RouteStop
                       {isCurrent && quest.scores ? <Scores scores={quest.scores} /> : null}
                     </>
                   ) : null}
-                  {!isDone ? <Tags leg={legs[i]} /> : null}
+                  {!isDone && legIsReal ? <Tags leg={legs[i]} /> : null}
                   {isCurrent ? (
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <StickerButton variant={ButtonVariant.Plain} size={ButtonSize.Lg} onClick={onCapture}>

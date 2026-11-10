@@ -48,9 +48,21 @@ export const LOADING_STAGES = [
   { label: "地点ごとにクエストを作る", api: "Gemini" },
 ] as const;
 
+/** 「現在地」を選んだときの出発地の名前。座標は「寄り道ルートを作る」を押したときに取る。 */
+export const HERE = "現在地";
+
+/** 緯度・経度。 */
+export type LatLng = { lat: number; lng: number };
+
 export type WalkState = {
   screen: Screen;
+  /** 出発地の名前。「現在地」も入る。 */
+  start: string;
+  /** 出発地を候補から選んだときの座標。打ち直すと null に戻る。 */
+  startAt: LatLng | null;
   dest: string;
+  /** 行き先を候補から選んだときの座標。打ち直すと null に戻る。 */
+  destAt: LatLng | null;
   mood: MoodId;
   budget: Budget;
   care: Care;
@@ -65,7 +77,9 @@ export type WalkState = {
 };
 
 export type WalkAction =
+  | { type: "setStart"; start: string }
   | { type: "setDest"; dest: string }
+  | { type: "pickPlace"; field: "start" | "dest"; name: string; at: LatLng }
   | { type: "pickMood"; mood: MoodId }
   | { type: "pickBudget"; budget: Budget }
   | { type: "setCare"; key: keyof Care; on: boolean }
@@ -89,7 +103,10 @@ const emptyRecords = (): Pick<WalkState, "shots" | "memos"> => ({
 
 export const initialWalk: WalkState = {
   screen: Screen.Input,
+  start: HERE,
+  startAt: null,
   dest: "",
+  destAt: null,
   mood: MoodId.Quiet,
   budget: 20,
   care: NO_CARE,
@@ -124,8 +141,12 @@ const nextCheckpoint = (s: WalkState): WalkState => {
 
 export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
   switch (a.type) {
+    case "setStart":
+      return { ...s, start: a.start, startAt: null };
     case "setDest":
-      return { ...s, dest: a.dest };
+      return { ...s, dest: a.dest, destAt: null };
+    case "pickPlace":
+      return a.field === "start" ? { ...s, start: a.name, startAt: a.at } : { ...s, dest: a.name, destAt: a.at };
     case "pickMood":
       return { ...s, mood: a.mood };
     case "pickBudget":
@@ -133,7 +154,7 @@ export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
     case "setCare":
       return { ...s, care: { ...s.care, [a.key]: a.on } };
     case "start":
-      if (!s.dest.trim()) return s;
+      if (!s.dest.trim() || !s.start.trim()) return s;
       return { ...s, screen: Screen.Loading, stage: 0, step: 0, ...emptyRecords(), plan: null, order: null };
     case "advanceStage":
       return routeWhenReady({ ...s, stage: Math.min(s.stage + 1, LOADING_STAGES.length) });
@@ -157,6 +178,6 @@ export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
     case "saveAndNext":
       return nextCheckpoint(s);
     case "restart":
-      return { ...initialWalk, dest: s.dest, mood: s.mood, care: s.care };
+      return { ...initialWalk, start: s.start, startAt: s.startAt, dest: s.dest, destAt: s.destAt, mood: s.mood, care: s.care };
   }
 };

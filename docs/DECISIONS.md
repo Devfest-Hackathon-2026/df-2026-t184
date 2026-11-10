@@ -187,3 +187,14 @@ AI 開発セッション中の質問・回答・理由の記録は `docs/decisio
 - 候補B：`package.json` に `test:scripts` を別に作り、node 環境で回す。環境は正確になるが、`npm test` だけを見る評価役や CI では回らず、壊れても気づかない。
 - 候補C：変えない（`feat/terrain-compare` のまま）。差分は最小だが、スクリプトのテストがどこからも実行されない。
 - B・C を捨てた理由：F08 の完了条件「terrain 系テストが通る」を、普段のチェックで継続的に確かめられないため。
+## D-009: 出発地・行き先の入力候補の出し方
+
+- 日付・決めた人：2026-11-10、PM（山田）が候補 A を選択。理由は未回答。[判断記録](decisions/2026-11-10-route-map-pins.md)。要相談 PR（有料 API の追加）。
+- 決定：`/walk` の入力画面で、出発地・行き先の入力候補を Places API (New) の Autocomplete（Maps JavaScript API の `AutocompleteSuggestion`）で出す。候補を選んだら `Place.fetchFields({ fields: ["location"] })` で座標だけを取り、地図はその座標を使う（地名検索も現在地も使わない）。出発地は Gemini にも渡す。地図キーがない・読み込めないときは今までどおりの文字入力。
+- 候補A（採用）：Places API (New) Autocomplete。施設名に強く、打つたびに候補が出る。寄り道地点の実在チェック（#20）にも流用できる。一方、有料で、キーの API 制限に Places API (New) を足す設定が必要。
+- 候補B：いま使っている Geocoding の結果を複数並べる。新しい API は増えないが、住所向けで施設名に弱く、候補が 1 件しか出ないことが多い。
+- 候補C：手で用意した主要駅・公園の一覧から選ぶ。費用ゼロでデモは確実だが、一覧にない場所に行けない。
+- 費用の抑え方：入力中の候補取得と、選んだときの座標取得を同じセッショントークンでまとめる（`src/lib/places.ts`）。座標取得は `location` だけを頼み、Place Details Essentials の範囲に収める。打ち終わって 250ms 待ってから、2 文字以上で候補を取る。
+- 料金（2026-11-10 参照。検索結果の要約から転記し、本文とは未照合）：セッションが Place Details Essentials で終わると、セッション内の Autocomplete は最初の 12 回が Autocomplete Requests SKU、13 回目以降は無料（[Autocomplete (New) and session pricing](https://developers.google.com/maps/documentation/places/web-service/session-pricing)）。Autocomplete Requests と Place Details Essentials は、それぞれ月 10,000 回まで無料（[core services pricing list](https://developers.google.com/maps/billing-and-pricing/pricing)）。無料枠を超えたあとの単価：（未記入: 要調査）。
+- 人が行う設定：Cloud Console で「Places API (New)」を有効にし、ブラウザ用キー（`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`）の API 制限に追加する。未設定のときは候補が出ず、文字入力として動く（地点名の地名検索は今までどおり）。
+- 出発地の送り方（AI判断・PM確認待ち）：地名を選んだときはその名前だけを送る。「現在地」は「寄り道ルートを作る」を押したときに位置を取り、座標を小数第 2 位（約 1km）に丸めた文（例：`現在地（北緯35.67・東経139.65付近）`）にして送る。正確な座標は Gemini に送らない。

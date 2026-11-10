@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { PaperScreen } from "@/components/sticker";
+import { MAPS_API_KEY } from "@/lib/google-maps";
+import { createPlaceSuggester } from "@/lib/places";
 
-import { requestQuests as requestQuestsFromApi } from "./api";
+import { requestQuests as requestQuestsFromApi, startForAi } from "./api";
 import { moodById, questsOf, SAMPLE_ALBUM, type AlbumEntry } from "./content";
-import { eta, initialWalk, QuestSource, Screen, walkReducer, type WalkAction, type WalkState } from "./flow";
+import { eta, HERE, initialWalk, QuestSource, Screen, walkReducer, type LatLng, type WalkAction, type WalkState } from "./flow";
 import { AlbumScreen } from "./screens/AlbumScreen";
 import { CaptureScreen } from "./screens/CaptureScreen";
 import { FeedScreen } from "./screens/FeedScreen";
@@ -18,6 +20,17 @@ import { RouteScreen } from "./screens/RouteScreen";
 import { StampsScreen } from "./screens/StampsScreen";
 import { Tab } from "./shell/tabs";
 import { TabBar } from "./shell/TabBar";
+
+/** 端末の現在地。使えない・許可されないときは null。 */
+const currentPosition = (): Promise<LatLng | null> =>
+  new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000, maximumAge: 60_000 },
+    );
+  });
 
 // 探索中の 1 段階ぶんの見せ時間。
 const STAGE_MS = 700;
@@ -61,6 +74,8 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   // スコアの演出は歩き終えた直後の 1 回だけ。タブから戻ったときは止まった状態で出す。
   const [celebrate, setCelebrate] = useState(false);
   const request = useRef<AbortController | null>(null);
+  // 出発地・行き先の候補（Places Autocomplete）。地図キーがあり live のときだけ使う。入力欄ごとにセッションを分ける
+  const suggest = useMemo(() => (live && MAPS_API_KEY ? { start: createPlaceSuggester(), dest: createPlaceSuggester() } : undefined), [live]);
 
   // 探索中の演出はタイマー（外部の時計）との同期なので effect で進める。
   useEffect(() => {
@@ -75,7 +90,7 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   const requestQuests = (): void => {
     request.current?.abort();
     request.current = null;
-    const { dest, mood, budget, care } = state;
+    const { dest, start, startAt, mood, budget, care } = state;
     if (!dest.trim()) return;
     const sample = moodById(mood).quests;
     if (!live) {
@@ -84,16 +99,24 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
     }
     const controller = new AbortController();
     request.current = controller;
-    void requestQuestsFromApi({ dest, mood, budget, care }, controller.signal).then((outcome) => {
-      if (controller.signal.aborted) return;
-      rawDispatch({
-        type: "receivePlan",
-        plan:
-          "quests" in outcome
-            ? { source: QuestSource.Ai, quests: outcome.quests }
-            : { source: QuestSource.Fallback, quests: sample, failure: outcome.failure },
+    // 現在地は、押したときに座標を取って地図と AI に渡す（AI には約1kmに丸めて送る）
+    const startAtReady = start === HERE && !startAt ? currentPosition() : Promise.resolve(startAt);
+    void startAtReady
+      .then((at) => {
+        if (controller.signal.aborted) return null;
+        if (start === HERE && at && !startAt) rawDispatch({ type: "pickPlace", field: "start", name: HERE, at });
+        return requestQuestsFromApi({ dest, start: startForAi(start, at), mood, budget, care }, controller.signal);
+      })
+      .then((outcome) => {
+        if (!outcome || controller.signal.aborted) return;
+        rawDispatch({
+          type: "receivePlan",
+          plan:
+            "quests" in outcome
+              ? { source: QuestSource.Ai, quests: outcome.quests }
+              : { source: QuestSource.Fallback, quests: sample, failure: outcome.failure },
+        });
       });
-    });
   };
 
   const dispatch = (action: WalkAction): void => {
@@ -123,7 +146,7 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   const renderWalk = (): React.ReactElement => {
     switch (state.screen) {
       case Screen.Input:
-        return <InputScreen state={state} dispatch={dispatch} />;
+        return <InputScreen state={state} dispatch={dispatch} suggest={suggest} />;
       case Screen.Loading:
         return <LoadingScreen state={state} />;
       case Screen.Route:
