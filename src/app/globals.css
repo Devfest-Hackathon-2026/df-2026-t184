@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@theme {
+  /*
+   * シンプルなデザインのトークン。見た目のルールは docs/design/style.md、構成は docs/design/design-system.md。
+   * 薄いグレーの地に白い丸いカード、等幅の文字、アクセントはピンク 1 色。参考: setlog（作成画面とログの画面）。
+   */
+  --color-ink: #1d2329;
+  --color-ink-soft: #5c6670;
+  --color-paper: #f2f2f4;
+  --color-paper-line: #e6e6ea;
+  --color-kraft: #e9e9ed;
+  --color-kraft-deep: #dcdce1;
+  --color-sticker: #ffffff;
+  --color-line: #d6d6db;
+
+  /* setlog のピンク。白い文字は乗せない（コントラスト不足）。上に乗る文字は ink にする */
+  --color-accent: #f562d6;
+  --color-accent-strong: #e746c4;
+  --color-accent-soft: #fde7f8;
+
+  /* 面の淡い色（タグ・小さな塗り）と、その印の色。彩度を落として控えめにする */
+  --color-pink: #fbeef2;
+  --color-pink-deep: #c45c7c;
+  --color-mint: #e9f5ef;
+  --color-mint-deep: #2f8a63;
+  --color-sky: #eaf3fb;
+  --color-sky-deep: #3d7fb8;
+  --color-lemon: #fbf5e2;
+  --color-lemon-deep: #a7801c;
+  --color-coral: #fcefe8;
+  --color-coral-deep: #c7663b;
+  --color-lilac: #f1eefb;
+  --color-lilac-deep: #6f5cb8;
+
+  --color-sky-ink: #2b6ea6;
+  --color-coral-ink: #b7410f;
+
+  --color-fg: var(--color-ink);
+  --color-fg-subtle: var(--color-ink-soft);
+  --color-fg-on-deep: #ffffff;
+  --color-canvas: var(--color-kraft);
+  --color-surface: var(--color-paper);
+  --color-surface-raised: var(--color-sticker);
+  --color-surface-disabled: var(--color-paper-line);
+  --color-border: var(--color-line);
+  --color-border-subtle: var(--color-line);
+  --color-focus: var(--color-sky-ink);
+  --color-danger: var(--color-coral-ink);
+  --color-danger-surface: var(--color-coral);
+  --color-overlay: rgb(29 35 41 / 0.08);
+  --color-scrim: rgb(29 35 41 / 0.45);
+
+  --spacing-grid: 22px;
+
+  --font-hand: var(--font-code), ui-monospace, "Hiragino Sans", monospace;
+  --font-note: var(--font-code), ui-monospace, "Hiragino Sans", monospace;
+
+  --shadow-sticker-sm: 0 1px 2px rgb(29 35 41 / 0.06);
+  --shadow-sticker: 0 1px 2px rgb(29 35 41 / 0.06), 0 4px 12px rgb(29 35 41 / 0.06);
+  --shadow-sticker-lg: 0 2px 4px rgb(29 35 41 / 0.08), 0 8px 20px rgb(29 35 41 / 0.08);
+  --shadow-pressed: none;
+
+  --radius-sticker: 22px;
+  --radius-chip: 999px;
+
+  --tilt-left: 0deg;
+  --tilt-right: 0deg;
+  --tilt-slight: 0deg;
+  --tilt-cell: 0deg;
+  --tilt-mascot: 0deg;
+  --tilt-stamp: 0deg;
+
+  --ease-pop: cubic-bezier(0.2, 0, 0, 1);
+
+  --animate-jelly: none;
+  --animate-pop-in: pop-in 200ms var(--ease-pop);
+  --animate-needle-wiggle: none;
+  --animate-needle-spin: needle-spin 1.6s linear infinite;
+  --animate-bot-idle: bot-bob 3.2s ease-in-out infinite;
+  --animate-bot-think: bot-tilt 1.2s ease-in-out infinite;
+  --animate-typing-dot: typing-dot 1s ease-in-out infinite;
+}
+
+/*
+ * ステッカー世界観の地色・手書きフォントはモックの外枠（PaperScreen）だけに
+ * スコープする。body に書くと prompt-lab などモック以外の画面にも漏れるため。
+ * 外の地（クラフト紙）は PaperScreen の kraft が担う。
+ */
+.sticker-app {
+  color: var(--color-fg);
+  font-family: var(--font-note);
+  caret-color: var(--color-accent);
+}
+
+/* 日本語の見出しやせりふは、文節の切れ目で折り返す */
+@layer base {
+  h1,
+  h2,
+  h3,
+  .font-hand {
+    word-break: auto-phrase;
+    text-wrap-style: balance;
+  }
+  /* 見出し・ボタン用。同じ等幅の太字で階層を作る */
+  .font-hand {
+    font-weight: 700;
+  }
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+/* 画面の地。白一色 */
+@utility paper {
+  background-color: var(--color-paper);
+}
+
+/* 画面の外側の地。薄いグレー */
+@utility kraft {
+  background-color: var(--color-kraft);
+}
+
+/* カードやボタンの縁。線は引かず、白い面をやわらかい影で浮かせる */
+@utility sticker-edge {
+  box-shadow: var(--shadow-sticker);
+}
+
+/*
+ * フォーカスインジケータ。白フチを残してから太めの輪郭を描く（smarthr-ui の
+ * focusIndicatorStyles に倣う）。
+ * 対象: focus-visible。色は --color-focus で紙面とのコントラストを確保する。
+ */
+@utility focus-ring {
+  isolation: isolate;
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 1.5px var(--color-paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes pop-in {
+  0% { translate: 0 8px; opacity: 0; }
+  100% { translate: 0 0; opacity: 1; }
+}
+
+@keyframes bot-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -3px; }
+}
+
+@keyframes bot-tilt {
+  0%, 100% { rotate: -4deg; }
+  50% { rotate: 4deg; }
+}
+
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; translate: 0 0; }
+  30% { opacity: 1; translate: 0 -3px; }
+}
+
+@keyframes needle-spin {
+  to { rotate: 360deg; }
+}

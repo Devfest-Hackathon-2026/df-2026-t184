@@ -1,0 +1,63 @@
+{
+  "F01": {
+    "passes": true,
+    "depends_on": []
+  },
+  "F02": {
+    "passes": true,
+    "depends_on": [
+      "F01"
+    ]
+  },
+  "F03": {
+    "passes": true,
+    "depends_on": [
+      "F01"
+    ]
+  },
+  "F04": {
+    "passes": true,
+    "depends_on": [
+      "F03"
+    ]
+  },
+  "F05": {
+    "passes": true,
+    "depends_on": [
+      "F02"
+    ]
+  },
+  "F06": {
+    "passes": true,
+    "depends_on": [
+      "F05"
+    ]
+  },
+  "F07": {
+    "passes": true,
+    "depends_on": [
+      "F06"
+    ]
+  },
+  "F08": {
+    "passes": true,
+    "depends_on": [
+      "F01"
+    ]
+  },
+  "F09": {
+    "passes": true,
+    "depends_on": [
+      "F05",
+      "F08"
+    ]
+  },
+  "F10": {
+    "passes": true,
+    "depends_on": [
+      "F04",
+      "F07",
+      "F09"
+    ]
+  }
+}

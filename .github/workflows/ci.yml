@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: python3 scripts/test-deploy.py
+      - run: bash scripts/test-branch-delete.sh
+      - run: npm test
+      - run: npm run build-storybook
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_APP_ENV: stg
+          NEXT_PUBLIC_FIREBASE_API_KEY: dummy
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: dummy.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: dummy
+          NEXT_PUBLIC_FIREBASE_APP_ID: dummy
+          NEXT_PUBLIC_FIREBASE_DATABASE_ID: yorimichi-stg
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "1031159186960"
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tool_dir=$(mktemp -d "${RUNNER_TEMP}/gitleaks.XXXXXX")
+          trap 'rm -rf "$tool_dir"' EXIT
+          archive="${tool_dir}/gitleaks.tar.gz"
+          # The browser download URL returned repeated HTTP 504 on hosted runners.
+          # Fetch the same pinned release asset through the official GitHub API.
+          for attempt in 1 2 3; do
+            if gh api repos/gitleaks/gitleaks/releases/assets/378332058 \
+              -H 'Accept: application/octet-stream' > "${archive}"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "::error::Failed to download the pinned Gitleaks release asset"
+              exit 1
+            fi
+            sleep 2
+          done
+          # Release asset digest verified against the official GitHub Releases API.
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${tool_dir}" gitleaks
+          "${tool_dir}/gitleaks" git --redact --no-banner -v --log-opts=HEAD
