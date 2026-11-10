@@ -5,6 +5,9 @@ import { loadGoogleMaps, onMapsAuthFailure } from "@/lib/google-maps";
 
 type LatLng = google.maps.LatLngLiteral;
 
+/** 地点を固定したルート。現在地と地名検索を使わない（位置の許可を求めず、Geocoding も呼ばない）。 */
+export type FixedRoute = { start: LatLng; checkpoints: readonly [LatLng, LatLng, LatLng]; goal: LatLng };
+
 // 位置情報が使えない・目的地が見つからない場合の既定値（サンプル）
 const DEFAULT_START: LatLng = { lat: 35.6812, lng: 139.7671 }; // 東京駅
 const DEFAULT_DEST = "上野公園";
@@ -59,6 +62,9 @@ type Props = {
   step: number; // 0..3（達成済みチェックポイント数）
   onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
   onError: () => void;
+  fixed?: FixedRoute;
+  // ルートを収めるときの余白。省略時は左上の戻るボタンを避ける /walk 用
+  fitPadding?: google.maps.Padding;
 };
 
 // Routes API（徒歩）で、道に沿った経路の点列を取る。失敗したら null
@@ -100,7 +106,29 @@ function progress(a: LatLng, b: LatLng, p: LatLng): number {
   return len2 === 0 ? 0 : ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / len2;
 }
 
-export default function RouteMap({ dest, places, step, onOrder, onError }: Props) {
+// 現在地と、目的地・提案された場所の地名検索から、出発地・チェックポイント3つ・目的地を決める
+async function resolveRoute(dest: string, placesKey: string): Promise<{ route: FixedRoute; order: number[] }> {
+  const [start, end] = await Promise.all([getStart(), geocode(dest)]);
+  const goal = end ?? { lat: 35.7148, lng: 139.7745 }; // 上野公園付近
+  // 提案された場所を目的地の周辺で検索。見つからない・遠すぎるものは仮の位置にする
+  const fallback = sampleCheckpoints(start, goal);
+  const found = placesKey
+    ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`, true)))
+    : [];
+  const found3 = fallback.map((f, i) => {
+    const g = found[i];
+    // 目的地と同じ位置（50m未満）は、場所が見つからず目的地に一致しただけとみなして捨てる
+    return g && distKm(g, goal) < 5 && distKm(g, goal) > 0.05 ? g : f;
+  });
+  // 行ったり来たりしないよう、出発地から目的地へ向かう順に並べる（クエストの順番も呼び出し側で揃える）
+  const order = found3.map((_, i) => i).sort((x, y) => progress(start, goal, found3[x]) - progress(start, goal, found3[y]));
+  const [a, b, c] = order.map((i) => found3[i]);
+  return { route: { start, checkpoints: [a, b, c], goal }, order };
+}
+
+export default function RouteMap({ dest, places, step, onOrder, onError, fixed, fitPadding = { top: 100, right: 40, bottom: 40, left: 40 } }: Props) {
+  const fixedRef = useRef(fixed);
+  const fitPaddingRef = useRef(fitPadding);
   const onOrderRef = useRef(onOrder);
   onOrderRef.current = onOrder;
   const placesKey = places?.join("|") ?? "";
@@ -123,24 +151,12 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
           google.maps.importLibrary("maps") as Promise<google.maps.MapsLibrary>,
           google.maps.importLibrary("marker") as Promise<google.maps.MarkerLibrary>,
         ]);
-        const [start, end] = await Promise.all([getStart(), geocode(dest)]);
+        const fixedRoute = fixedRef.current;
+        const resolved = fixedRoute ? { route: fixedRoute, order: null } : await resolveRoute(dest, placesKey);
         if (cancelled || !el.current) return;
-        const goal = end ?? { lat: 35.7148, lng: 139.7745 }; // 上野公園付近
-        // 提案された場所を目的地の周辺で検索。見つからない・遠すぎるものは仮の位置にする
-        const fallback = sampleCheckpoints(start, goal);
-        const found = placesKey
-          ? await Promise.all(placesKey.split("|").map((p) => geocode(`${p} ${dest || DEFAULT_DEST}`, true)))
-          : [];
-        if (cancelled || !el.current) return;
-        const found3 = fallback.map((f, i) => {
-          const g = found[i];
-          // 目的地と同じ位置（50m未満）は、場所が見つからず目的地に一致しただけとみなして捨てる
-          return g && distKm(g, goal) < 5 && distKm(g, goal) > 0.05 ? g : f;
-        });
-        // 行ったり来たりしないよう、出発地から目的地へ向かう順に並べる（クエストの順番も呼び出し側で揃える）
-        const order = found3.map((_, i) => i).sort((x, y) => progress(start, goal, found3[x]) - progress(start, goal, found3[y]));
-        const cps = order.map((i) => found3[i]);
-        onOrderRef.current?.(order);
+        if (resolved.order) onOrderRef.current?.(resolved.order);
+        const { start, checkpoints, goal } = resolved.route;
+        const cps = [...checkpoints];
         const path = [start, ...cps, goal];
         markers.current.path = path;
         // 調整用：ピンが重なって見えないときの手がかり（座標は公開情報。キーは含まない）
@@ -194,7 +210,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError }: Props
         const bounds = new google.maps.LatLngBounds();
         path.forEach((p) => bounds.extend(p));
         // 地図の枠そのものを「下のカードより上」だけにする。余白の計算に頼らず、見える範囲にぴったり収まる
-        map.fitBounds(bounds, { top: 100, right: 40, bottom: 40, left: 40 });
+        map.fitBounds(bounds, fitPaddingRef.current);
         // 2点が近いと寄りすぎるので、拡大しすぎないようにする
         google.maps.event.addListenerOnce(map, "idle", () => {
           if ((map.getZoom() ?? 0) > 16) map.setZoom(16);

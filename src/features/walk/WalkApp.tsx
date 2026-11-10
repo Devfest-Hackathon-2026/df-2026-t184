@@ -144,7 +144,7 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   if (showOnboarding) {
     return (
       <PaperScreen>
-        <OnboardingScreen onDone={() => setShowOnboarding(false)} />
+        <OnboardingScreen onDone={() => setShowOnboarding(false)} realMap={live} />
       </PaperScreen>
     );
   }
