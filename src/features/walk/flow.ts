@@ -31,6 +31,10 @@ export type QuestPlan = {
 };
 
 export type Budget = 10 | 20 | 30;
+
+/** 歩きやすさの希望。坂を少なめにしたい・日陰を通りたい。どちらも任意。 */
+export type Care = { slope: boolean; shade: boolean };
+export const NO_CARE: Care = { slope: false, shade: false };
 export const BUDGETS: readonly Budget[] = [10, 20, 30];
 
 export const CHECKPOINTS = 3;
@@ -49,6 +53,7 @@ export type WalkState = {
   dest: string;
   mood: MoodId;
   budget: Budget;
+  care: Care;
   stage: number;
   step: number;
   shots: boolean[];
@@ -63,6 +68,7 @@ export type WalkAction =
   | { type: "setDest"; dest: string }
   | { type: "pickMood"; mood: MoodId }
   | { type: "pickBudget"; budget: Budget }
+  | { type: "setCare"; key: keyof Care; on: boolean }
   | { type: "start" }
   | { type: "advanceStage" }
   | { type: "receivePlan"; plan: QuestPlan }
@@ -86,6 +92,7 @@ export const initialWalk: WalkState = {
   dest: "",
   mood: MoodId.Quiet,
   budget: 20,
+  care: NO_CARE,
   stage: 0,
   step: 0,
   ...emptyRecords(),
@@ -123,6 +130,8 @@ export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
       return { ...s, mood: a.mood };
     case "pickBudget":
       return { ...s, budget: a.budget };
+    case "setCare":
+      return { ...s, care: { ...s.care, [a.key]: a.on } };
     case "start":
       if (!s.dest.trim()) return s;
       return { ...s, screen: Screen.Loading, stage: 0, step: 0, ...emptyRecords(), plan: null, order: null };
@@ -148,6 +157,6 @@ export const walkReducer = (s: WalkState, a: WalkAction): WalkState => {
     case "saveAndNext":
       return nextCheckpoint(s);
     case "restart":
-      return { ...initialWalk, dest: s.dest, mood: s.mood };
+      return { ...initialWalk, dest: s.dest, mood: s.mood, care: s.care };
   }
 };

@@ -62,6 +62,8 @@ type Props = {
   step: number; // 0..3（達成済みチェックポイント数）
   onOrder?: (order: number[]) => void; // 出発地→目的地の順に並べ替えたとき、元の places の何番目かを知らせる
   onError: () => void;
+  /** 地図に描いた最短・寄り道ルートの形。徒歩ルートが取れなかったときは直線（straight: true）。 */
+  onRoutes?: (routes: { direct: LatLng[]; detour: LatLng[]; straight: boolean }) => void;
   fixed?: FixedRoute;
   // ルートを収めるときの余白。省略時は左上の戻るボタンを避ける /walk 用
   fitPadding?: google.maps.Padding;
@@ -126,11 +128,13 @@ async function resolveRoute(dest: string, placesKey: string): Promise<{ route: F
   return { route: { start, checkpoints: [a, b, c], goal }, order };
 }
 
-export default function RouteMap({ dest, places, step, onOrder, onError, fixed, fitPadding = { top: 100, right: 40, bottom: 40, left: 40 } }: Props) {
+export default function RouteMap({ dest, places, step, onOrder, onError, onRoutes, fixed, fitPadding = { top: 100, right: 40, bottom: 40, left: 40 } }: Props) {
   const fixedRef = useRef(fixed);
   const fitPaddingRef = useRef(fitPadding);
   const onOrderRef = useRef(onOrder);
   onOrderRef.current = onOrder;
+  const onRoutesRef = useRef(onRoutes);
+  onRoutesRef.current = onRoutes;
   const placesKey = places?.join("|") ?? "";
   const el = useRef<HTMLDivElement>(null);
   const markers = useRef<{ cps: google.maps.marker.PinElement[]; me?: google.maps.marker.AdvancedMarkerElement; path: LatLng[] }>({ cps: [], path: [] });
@@ -222,6 +226,7 @@ export default function RouteMap({ dest, places, step, onOrder, onError, fixed, 
         if (cancelled) return;
         if (direct) directLine.setPath(direct);
         if (detour) detourLine.setPath(detour);
+        onRoutesRef.current?.({ direct: direct ?? [start, goal], detour: detour ?? path, straight: !direct || !detour });
       } catch (e) {
         console.error(e);
         if (!cancelled) onError();

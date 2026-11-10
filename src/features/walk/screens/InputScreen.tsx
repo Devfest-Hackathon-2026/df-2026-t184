@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { ButtonSize, ScreenHeading, StickerButton, TextField } from "@/components/sticker";
+import { ButtonSize, ScreenHeading, StickerButton, StickerCheckbox, TextField } from "@/components/sticker";
 
 import { BudgetPicker } from "../components/BudgetPicker";
 import { EtaNote } from "../components/EtaNote";
@@ -137,6 +137,16 @@ export const InputScreen = ({ state, dispatch }: InputScreenProps): React.ReactE
           <>
             <BudgetPicker value={state.budget} onChange={(budget) => dispatch({ type: "pickBudget", budget })} />
             <EtaNote budget={state.budget} />
+            <fieldset className="flex flex-col gap-2 rounded-(--radius-chip) border border-dashed border-line px-4 py-3">
+              <legend className="px-1 font-hand text-sm text-ink">歩きやすさ（任意）</legend>
+              <StickerCheckbox checked={state.care.slope} onChange={(on) => dispatch({ type: "setCare", key: "slope", on })}>
+                <span className="font-note text-sm text-ink">坂は少なめがいい</span>
+              </StickerCheckbox>
+              <StickerCheckbox checked={state.care.shade} onChange={(on) => dispatch({ type: "setCare", key: "shade", on })}>
+                <span className="font-note text-sm text-ink">日陰を通りたい</span>
+              </StickerCheckbox>
+              <p className="font-note text-xs text-ink-soft">AIの地点選びに伝えます。坂・日陰の値は上野〜谷中だけ、公開データからの推定で出します</p>
+            </fieldset>
           </>
         ) : null}
 

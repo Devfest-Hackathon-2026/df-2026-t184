@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import GoogleRouteMap from "@/components/RouteMap";
 import { MAPS_API_KEY } from "@/lib/google-maps";
@@ -11,6 +11,9 @@ import { QuestSheet } from "../components/QuestSheet";
 import { MapVariant, RouteMap } from "../components/RouteMap";
 import { questsOf } from "../content";
 import { CHECKPOINTS, QuestSource, type WalkAction, type WalkState } from "../flow";
+import { loadTerrainGrids } from "../terrain/grids";
+import { RouteTerrainCard, TerrainStatus } from "../terrain/RouteTerrainCard";
+import { summarizeTerrain, type RouteTerrain } from "../terrain/summary";
 
 type RouteScreenProps = {
   state: WalkState;
@@ -70,22 +73,57 @@ const LegendLine = ({ dotted }: { dotted: boolean }): React.ReactElement => (
   </svg>
 );
 
-/** 手描きの地図と、いまの地点のクエストを上下に並べる画面。 */
+type DrawnRoutes = { direct: google.maps.LatLngLiteral[]; detour: google.maps.LatLngLiteral[]; straight: boolean };
+type TerrainResult = { routes: DrawnRoutes; failed: boolean; detour?: RouteTerrain; direct?: RouteTerrain };
+
+/** 地図に描いたルートから、坂と日陰の推定を作る。地図が使えなければ NoRoute。 */
+const useRouteTerrain = (routes: DrawnRoutes | null, mapUsable: boolean) => {
+  const [result, setResult] = useState<TerrainResult | null>(null);
+  useEffect(() => {
+    if (!routes) return;
+    let cancelled = false;
+    loadTerrainGrids()
+      .then((g) => {
+        if (cancelled) return;
+        setResult({
+          routes,
+          failed: false,
+          detour: summarizeTerrain(routes.detour, g.elev, g.shade),
+          direct: summarizeTerrain(routes.direct, g.elev, g.shade),
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ routes, failed: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [routes]);
+  if (!mapUsable) return { status: TerrainStatus.NoRoute };
+  if (!routes || result?.routes !== routes) return { status: TerrainStatus.Loading };
+  if (result.failed) return { status: TerrainStatus.Failed };
+  return { status: TerrainStatus.Ready, detour: result.detour, direct: result.direct, straight: routes.straight };
+};
+
+/** 地図と、いまの地点のクエスト・坂と日陰を上下に並べる画面。 */
 export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenProps): React.ReactElement => {
   const [mapFailed, setMapFailed] = useState(false);
+  const [routes, setRoutes] = useState<DrawnRoutes | null>(null);
   const quest = questsOf(state)[Math.min(state.step, LAST_INDEX)];
   const useGoogleMap = realMap && MAPS_API_KEY !== "" && !mapFailed;
   const notice = sourceNotice(state.plan);
+  const terrain = useRouteTerrain(routes, useGoogleMap);
   return (
     <div className="flex flex-1 flex-col">
       <ScreenHeading className="sr-only">寄り道ルート</ScreenHeading>
-      <div className="relative min-h-80 flex-1 overflow-hidden border-b border-line">
+      <div className="relative min-h-72 flex-1 overflow-hidden border-b border-line">
         {useGoogleMap ? (
           <GoogleRouteMap
             dest={state.dest}
             places={state.plan?.quests.map((q) => q.checkpoint)}
             step={state.step}
             onOrder={(order) => dispatch({ type: "reorder", order })}
+            onRoutes={setRoutes}
             onError={() => setMapFailed(true)}
           />
         ) : (
@@ -112,25 +150,19 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
           {useGoogleMap ? null : <p className="font-note text-xs text-coral-ink">混雑を回避（イメージ）</p>}
         </div>
       </div>
-      {useGoogleMap ? null : <p className="mx-3 mt-3 font-note text-xs text-ink-soft">{HAND_DRAWN_MAP_NOTE}</p>}
-      {notice ? (
-        <p role="status" className="mx-3 mt-3 rounded-(--radius-chip) border border-line bg-sticker px-3 py-2 font-note text-xs text-ink">
-          {notice}
-        </p>
-      ) : null}
-      <a
-        href="/terrain"
-        target="_blank"
-        rel="noreferrer"
-        className="mx-3 mt-3 mb-8 flex flex-col gap-1 rounded-(--radius-chip) border border-line bg-sticker px-3 py-2 shadow-sticker-sm transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:focus-ring"
-      >
-        <span className="flex items-center gap-2 font-hand text-sm text-ink">
-          <IconSticker name={IconName.Pin} tone={Tone.Mint} size={28} />
-          坂・日陰を比べる（別タブで開く）
-        </span>
-        <span className="font-note text-xs text-ink-soft">{TERRAIN_DEMO_NOTE}</span>
-      </a>
-      <div className="relative z-10 -mt-6 px-3 pb-3">
+
+      <div className="flex flex-col gap-5 px-4 pt-5 pb-10">
+        {notice || !useGoogleMap ? (
+          <div className="flex flex-col gap-1.5">
+            {notice ? (
+              <p role="status" className="font-note text-xs leading-relaxed text-ink-soft">
+                {notice}
+              </p>
+            ) : null}
+            {useGoogleMap ? null : <p className="font-note text-xs leading-relaxed text-ink-soft">{HAND_DRAWN_MAP_NOTE}</p>}
+          </div>
+        ) : null}
+
         <QuestSheet
           quest={quest}
           step={state.step}
@@ -138,6 +170,24 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
           onCapture={() => dispatch({ type: "openCapture" })}
           onFound={() => dispatch({ type: "found" })}
         />
+
+        <RouteTerrainCard
+          status={terrain.status}
+          detour={terrain.detour}
+          direct={terrain.direct}
+          straight={terrain.straight}
+          care={state.care}
+        />
+
+        <a
+          href="/terrain"
+          target="_blank"
+          rel="noreferrer"
+          className="flex flex-col gap-1.5 rounded-(--radius-chip) border border-dashed border-line px-4 py-3 transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:focus-ring"
+        >
+          <span className="font-hand text-sm text-ink">坂・日陰を比べる（固定デモ経路・別タブで開く）</span>
+          <span className="font-note text-xs leading-relaxed text-ink-soft">{TERRAIN_DEMO_NOTE}</span>
+        </a>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 // /api/quests の中身。Gemini を呼び、失敗したら原因（QuestFailure）を分けて返し、ログに残す。
 // route.ts から切り出したのは、Vertex AI のクライアントを差し替えて単体テストするため。
 
-import { buildQuestPrompt, QUEST_SYSTEM_INSTRUCTION } from "./prompts/quests";
+import { buildQuestPrompt, QUEST_SYSTEM_INSTRUCTION, type QuestPromptInput } from "./prompts/quests";
 import { RATE_LIMIT_TEXT } from "./rate-limit";
 import { parseQuests, QuestFailure, type Quest } from "./quests";
 import { VertexAuthError, type VertexClient } from "./vertex";
@@ -13,7 +13,7 @@ export const GEMINI_TIMEOUT_MS = 20_000;
 /** ログに出す Gemini の応答本文の上限（文字数）。応答にキーは含まれない。 */
 const LOG_DETAIL_MAX = 300;
 
-export type QuestInput = { dest: string; moodLabel: string; moodDesc: string; extraMin: number };
+export type QuestInput = QuestPromptInput;
 
 export type QuestResult =
   | { ok: true; quests: Quest[] }

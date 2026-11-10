@@ -73,7 +73,7 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
   const requestQuests = (): void => {
     request.current?.abort();
     request.current = null;
-    const { dest, mood, budget } = state;
+    const { dest, mood, budget, care } = state;
     if (!dest.trim()) return;
     const sample = moodById(mood).quests;
     if (!live) {
@@ -82,7 +82,7 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
     }
     const controller = new AbortController();
     request.current = controller;
-    void requestQuestsFromApi({ dest, mood, budget }, controller.signal).then((outcome) => {
+    void requestQuestsFromApi({ dest, mood, budget, care }, controller.signal).then((outcome) => {
       if (controller.signal.aborted) return;
       rawDispatch({
         type: "receivePlan",

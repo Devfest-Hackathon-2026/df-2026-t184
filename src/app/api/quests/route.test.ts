@@ -108,3 +108,19 @@ describe("POST /api/quests", () => {
     expect((await postAs({ "x-fah-client-ip": "203.0.113.3" })).status).toBe(429);
   });
 });
+
+describe("POST /api/quests の歩きやすさの希望", () => {
+  it("care.slope が true なら、Gemini へのプロンプトに坂の希望が入る", async () => {
+    const prompts: string[] = [];
+    vertex.client = {
+      generateContent: async (req: { contents: { parts: { text: string }[] }[] }) => {
+        prompts.push(req.contents[0].parts[0].text);
+        return new Response(geminiBody(JSON.stringify({ quests: [geminiQuest(1), geminiQuest(2), geminiQuest(3)] })));
+      },
+    } as unknown as VertexClient;
+    await post({ ...VALID, care: { slope: true, shade: "yes" } });
+    expect(prompts[0]).toContain("坂");
+    expect(prompts[0]).not.toContain("日陰");
+  });
+});
+

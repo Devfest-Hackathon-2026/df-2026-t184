@@ -125,3 +125,20 @@ describe("questsOf", () => {
     expect(questsOf(s).map((q) => q.checkpoint)).toEqual(["AIの地点1", "AIの地点2", "AIの地点3"]);
   });
 });
+
+import { describe as d2, expect as e2, it as i2 } from "vitest";
+import { initialWalk as init2, walkReducer as red2 } from "./flow";
+
+d2("歩きやすさの希望（坂・日陰）", () => {
+  i2("最初はどちらも選ばれておらず、選ぶ・外すができる", () => {
+    e2(init2.care).toEqual({ slope: false, shade: false });
+    const s = red2(init2, { type: "setCare", key: "slope", on: true });
+    e2(s.care).toEqual({ slope: true, shade: false });
+    e2(red2(s, { type: "setCare", key: "slope", on: false }).care.slope).toBe(false);
+  });
+
+  i2("もう一度歩くときも希望は残す", () => {
+    const s = red2(red2(init2, { type: "setCare", key: "shade", on: true }), { type: "restart" });
+    e2(s.care.shade).toBe(true);
+  });
+});

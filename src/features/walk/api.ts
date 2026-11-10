@@ -1,9 +1,9 @@
 import { isQuestFailure, QuestFailure } from "@/lib/quests";
 
 import { moodById, MOODS, type Quest } from "./content";
-import { BUDGETS, CHECKPOINTS, type Budget, type MoodId } from "./flow";
+import { BUDGETS, CHECKPOINTS, type Budget, type Care, type MoodId } from "./flow";
 
-export type QuestRequest = { dest: string; mood: MoodId; budget: Budget };
+export type QuestRequest = { dest: string; mood: MoodId; budget: Budget; care?: Care };
 
 /** クエストを取ってくる。失敗・不正な応答なら null を返し、呼び出し側が見本に切り替える。 */
 export type QuestFetcher = (request: QuestRequest, signal: AbortSignal) => Promise<readonly Quest[] | null>;
@@ -56,7 +56,7 @@ const failureOf = async (res: Response): Promise<QuestFailure> => {
 };
 
 /** API は気分と時間を添字で受け取り、文言はサーバー側で決める。失敗しても投げず、原因を返す。 */
-export const requestQuests: QuestOutcomeFetcher = async ({ dest, mood, budget }, signal) => {
+export const requestQuests: QuestOutcomeFetcher = async ({ dest, mood, budget, care }, signal) => {
   let res: Response;
   try {
     res = await fetch("/api/quests", {
@@ -66,6 +66,7 @@ export const requestQuests: QuestOutcomeFetcher = async ({ dest, mood, budget },
         dest: dest.trim(),
         mood: MOODS.findIndex((m) => m.id === mood),
         budget: BUDGETS.indexOf(budget),
+        ...(care?.slope || care?.shade ? { care } : {}),
       }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
     });

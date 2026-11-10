@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const limited = rateLimitResponse(questsLimiter, req, "quests");
   if (limited) return limited;
 
-  let body: { dest?: unknown; mood?: unknown; budget?: unknown };
+  let body: { dest?: unknown; mood?: unknown; budget?: unknown; care?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -33,7 +33,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid input" }, { status: 400 });
   }
 
-  const result = await generateQuests(vertexFromEnv(), { dest, moodLabel: mood.label, moodDesc: mood.desc, extraMin: extra });
+  // 歩きやすさの希望は true のときだけ有効にする（文字列などは無視）
+  const rawCare = (body.care ?? {}) as { slope?: unknown; shade?: unknown };
+  const care = { slope: rawCare.slope === true, shade: rawCare.shade === true };
+
+  const result = await generateQuests(vertexFromEnv(), { dest, moodLabel: mood.label, moodDesc: mood.desc, extraMin: extra, care });
   if (!result.ok) return NextResponse.json({ error: ERROR_TEXT[result.failure], reason: result.failure }, { status: result.status });
   return NextResponse.json({ quests: result.quests });
 }

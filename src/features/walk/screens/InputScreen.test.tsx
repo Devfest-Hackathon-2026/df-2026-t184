@@ -53,4 +53,17 @@ describe("1 問ずつ聞く入力画面", () => {
     fireEvent.click(screen.getByRole("button", { name: "寄り道ルートを作る" }));
     expect(screen.getByRole("heading", { name: "ルートを探しています" })).toBeInTheDocument();
   });
+
+  it("最後の質問で、坂を少なめ・日陰を通りたいを選べる（任意）", () => {
+    render(<WalkApp />);
+    fireEvent.change(screen.getByLabelText("行き先"), { target: { value: "上野公園" } });
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+    const slope = screen.getByRole("checkbox", { name: /坂は少なめ/ });
+    const shade = screen.getByRole("checkbox", { name: /日陰を通りたい/ });
+    expect(slope).not.toBeChecked();
+    fireEvent.click(slope);
+    expect(slope).toBeChecked();
+    expect(shade).not.toBeChecked();
+  });
 });
