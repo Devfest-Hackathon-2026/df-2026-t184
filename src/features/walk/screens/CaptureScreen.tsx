@@ -51,7 +51,7 @@ export const CaptureScreen = ({ state, dispatch }: CaptureScreenProps): React.Re
         id={MEMO_ID}
         label="ひとことメモ"
         placeholder="気づいたことを一言"
-        hint="写真とメモから、Gemini が最後に思い出カードを書きます"
+        hint="メモは最後の思い出カードに載ります（カードの文章は見本で、AIはまだ書きません）"
         value={state.memos[index] ?? ""}
         onChange={(e) => dispatch({ type: "setMemo", memo: e.target.value })}
       />

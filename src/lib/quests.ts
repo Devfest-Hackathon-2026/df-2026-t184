@@ -29,3 +29,23 @@ export function parseQuests(raw: unknown): Quest[] | null {
   }
   return out;
 }
+
+/** /api/quests が見本に切り替える原因。サーバーの応答とログ、画面の知らせで共通に使う。 */
+export enum QuestFailure {
+  /** Gemini（またはブラウザからの通信）が時間内に返らなかった。 */
+  Timeout = "timeout",
+  /** Gemini は返したが、JSON として読めない・形が違う。 */
+  InvalidOutput = "invalid_output",
+  /** Gemini が 4xx/5xx を返した、または通信に失敗した。 */
+  Upstream = "upstream",
+  /** Vertex AI の認証情報を取れない、またはプロジェクトが設定されていない。 */
+  Config = "config",
+  /** ブラウザから /api/quests に届かなかった。 */
+  Network = "network",
+  /** 同じ IP からの呼び出しが多すぎて、サーバーが 429 で断った（src/lib/rate-limit.ts）。 */
+  RateLimited = "rate_limited",
+}
+
+const FAILURES: ReadonlySet<string> = new Set(Object.values(QuestFailure));
+
+export const isQuestFailure = (v: unknown): v is QuestFailure => typeof v === "string" && FAILURES.has(v);

@@ -55,3 +55,17 @@ next-env.d.ts
 # storybook
 storybook-static
 *storybook.log
+# >>> superloop >>>
+.worktrees/
+.superloop/state/
+logs/
+evidence/
+NEXT_FINDINGS.md
+STEER.md
+AGENT_STOP
+.env
+.env.*
+!.env.example
+*.pem
+*-key.json
+# <<< superloop <<<

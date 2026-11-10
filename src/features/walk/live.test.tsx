@@ -13,6 +13,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const startWalk = async (): Promise<void> => {
@@ -48,4 +49,30 @@ describe("WalkApp の live 指定", () => {
 
     expect(screen.getByRole("heading", { name: "ルートを探しています" })).toBeInTheDocument();
   });
+
+  it.each([
+    [{ reason: "timeout" }, 504, "AIの応答が時間内に届かなかったため"],
+    [{ reason: "invalid_output" }, 502, "AIの応答の形が正しくなかったため"],
+    [{ reason: "upstream" }, 502, "AIの呼び出しに失敗したため"],
+    [{ reason: "rate_limited" }, 429, "短い時間にAIを呼びすぎた（1分ほど待つとまた使えます）ため"],
+  ])("AI の失敗の原因 %o を、見本に切り替えた知らせに出す", async (body, status, reasonText) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })));
+    await startWalk();
+
+    expect(screen.getByRole("heading", { name: "鳥居の奥で、風鈴の音を探そう" })).toBeInTheDocument();
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent(reasonText);
+    expect(notice).toHaveTextContent("サンプルのクエストを表示しています");
+    expect(notice).toHaveTextContent("AIが作ったものではありません");
+  });
+
+  it("ブラウザ側で時間切れになっても止まらず、見本に切り替えて知らせる", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")));
+    await startWalk();
+
+    expect(screen.getByRole("status")).toHaveTextContent("AIの応答が時間内に届かなかったため、サンプルのクエスト");
+  });
 });
+

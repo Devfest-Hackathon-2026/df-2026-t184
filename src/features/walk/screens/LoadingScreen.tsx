@@ -9,6 +9,9 @@ type LoadingScreenProps = {
   state: WalkState;
 };
 
+/** 探索の段階が演出であることの知らせ。Places API は使っておらず、AI はクエストを作るだけ。 */
+export const LOADING_STAGES_NOTE =
+  "段階の表示は演出です。実際に使うのは、クエストを作る Gemini と、地図キーがあるときの Google マップの道順だけです";
 
 /** ルートを探している間、探索の段階を 1 つずつ進めて見せる画面。 */
 export const LoadingScreen = ({ state }: LoadingScreenProps): React.ReactElement => {
@@ -23,6 +26,7 @@ export const LoadingScreen = ({ state }: LoadingScreenProps): React.ReactElement
         </p>
       </div>
       <LoadingStages stage={state.stage} />
+      <p className="font-note text-xs text-balance text-center text-ink-soft">{LOADING_STAGES_NOTE}</p>
       <BotSays text={`${LOADING_STAGES[Math.min(state.stage, LOADING_STAGES.length - 1)].label}ところ…`} className="w-full" />
     </div>
   );

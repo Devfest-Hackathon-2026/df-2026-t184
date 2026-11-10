@@ -1,3 +1,5 @@
+import type { QuestFailure } from "@/lib/quests";
+
 import type { Quest } from "./content";
 
 export enum MoodId {
@@ -21,7 +23,12 @@ export enum QuestSource {
   Fallback = "fallback",
 }
 
-export type QuestPlan = { source: QuestSource; quests: readonly Quest[] };
+export type QuestPlan = {
+  source: QuestSource;
+  quests: readonly Quest[];
+  /** source が Fallback のときの、AI が使えなかった原因。 */
+  failure?: QuestFailure;
+};
 
 export type Budget = 10 | 20 | 30;
 export const BUDGETS: readonly Budget[] = [10, 20, 30];

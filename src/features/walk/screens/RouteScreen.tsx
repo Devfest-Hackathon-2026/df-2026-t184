@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import GoogleRouteMap from "@/components/RouteMap";
 import { MAPS_API_KEY } from "@/lib/google-maps";
+import { QuestFailure } from "@/lib/quests";
 import { IconName, IconSticker, ScreenHeading, Tone } from "@/components/sticker";
 
 import { QuestSheet } from "../components/QuestSheet";
@@ -19,6 +20,43 @@ type RouteScreenProps = {
 };
 
 const LAST_INDEX = CHECKPOINTS - 1;
+
+/** AI が使えなかった原因ごとの、見本に切り替えたことの知らせ。 */
+const FALLBACK_REASON: Record<QuestFailure, string> = {
+  [QuestFailure.Timeout]: "AIの応答が時間内に届かなかった",
+  [QuestFailure.InvalidOutput]: "AIの応答の形が正しくなかった",
+  [QuestFailure.Upstream]: "AIの呼び出しに失敗した",
+  [QuestFailure.Config]: "AIの設定・認証に失敗した",
+  [QuestFailure.Network]: "通信に失敗した",
+  [QuestFailure.RateLimited]: "短い時間にAIを呼びすぎた（1分ほど待つとまた使えます）",
+};
+
+const fallbackNotice = (failure: QuestFailure | undefined): string =>
+  `${failure ? FALLBACK_REASON[failure] : "AIがうまく動かなかった"}ため、サンプルのクエストを表示しています（AIが作ったものではありません）`;
+
+/** AI が作ったクエストであることの知らせ。地点の実在や内容は現地で確かめていない。 */
+export const AI_NOTICE = "Gemini（AI）が作ったクエストです。地点や内容は現地で確かめていません";
+/** live でないときの、見本のクエストであることの知らせ。 */
+export const SAMPLE_NOTICE = "サンプルのクエストを表示しています（AIが作ったものではありません）";
+/** 手描きの地図が実際の道順ではないことの知らせ（地図キーなし・読み込み失敗のとき）。 */
+export const HAND_DRAWN_MAP_NOTE = "手描きのイメージ図です（実際の道順・混雑からは描いていません）";
+/** 坂・日陰の比較が、いまの寄り道ルートではなく固定デモ経路の推定値であることの知らせ。 */
+export const TERRAIN_DEMO_NOTE =
+  "比較するのは上野公園〜谷中〜鶯谷の固定デモ経路です（いまの寄り道ルートとは別）。値は公開データからの推定値で現地は未検証。評価できない区間は「不明区間」として出ます";
+
+/** クエストの出どころ（AI・見本・AI 失敗で見本）を知らせる文。 */
+export const sourceNotice = (plan: WalkState["plan"]): string | null => {
+  switch (plan?.source) {
+    case QuestSource.Ai:
+      return AI_NOTICE;
+    case QuestSource.Sample:
+      return SAMPLE_NOTICE;
+    case QuestSource.Fallback:
+      return fallbackNotice(plan.failure);
+    default:
+      return null;
+  }
+};
 const BACK_SIZE = 44;
 
 /** 凡例の線見本。地図と同じ色・太さで、点線が寄り道、薄い線が最短。 */
@@ -37,6 +75,7 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
   const [mapFailed, setMapFailed] = useState(false);
   const quest = questsOf(state)[Math.min(state.step, LAST_INDEX)];
   const useGoogleMap = realMap && MAPS_API_KEY !== "" && !mapFailed;
+  const notice = sourceNotice(state.plan);
   return (
     <div className="flex flex-1 flex-col">
       <ScreenHeading className="sr-only">寄り道ルート</ScreenHeading>
@@ -69,14 +108,28 @@ export const RouteScreen = ({ state, dispatch, realMap = false }: RouteScreenPro
             <LegendLine dotted={false} />
             線が最短
           </p>
-          <p className="font-note text-xs text-coral-ink">混雑を回避</p>
+          {/* 混雑は Google の地図でも計算していないので、イメージ図のときだけ出す。 */}
+          {useGoogleMap ? null : <p className="font-note text-xs text-coral-ink">混雑を回避（イメージ）</p>}
         </div>
       </div>
-      {state.plan?.source === QuestSource.Fallback ? (
+      {useGoogleMap ? null : <p className="mx-3 mt-3 font-note text-xs text-ink-soft">{HAND_DRAWN_MAP_NOTE}</p>}
+      {notice ? (
         <p role="status" className="mx-3 mt-3 rounded-(--radius-chip) border border-line bg-sticker px-3 py-2 font-note text-xs text-ink">
-          AIがうまく動かなかったため、サンプルのクエストを表示しています
+          {notice}
         </p>
       ) : null}
+      <a
+        href="/terrain"
+        target="_blank"
+        rel="noreferrer"
+        className="mx-3 mt-3 mb-8 flex flex-col gap-1 rounded-(--radius-chip) border border-line bg-sticker px-3 py-2 shadow-sticker-sm transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-visible:focus-ring"
+      >
+        <span className="flex items-center gap-2 font-hand text-sm text-ink">
+          <IconSticker name={IconName.Pin} tone={Tone.Mint} size={28} />
+          坂・日陰を比べる（別タブで開く）
+        </span>
+        <span className="font-note text-xs text-ink-soft">{TERRAIN_DEMO_NOTE}</span>
+      </a>
       <div className="relative z-10 -mt-6 px-3 pb-3">
         <QuestSheet
           quest={quest}

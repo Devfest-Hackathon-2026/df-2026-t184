@@ -6,7 +6,7 @@ DevFest GDGoC Japan Hackathon 2026（チーム t184）の**開発用**リポジ�
 ## 構成
 - Next.js（App Router / TypeScript / Tailwind）
 - Firebase（Auth / Firestore / App Hosting）
-- Gemini API（`src/app/api/gemini/route.ts`、キーはサーバー側のみ）
+- Gemini（Vertex AI、`src/app/api/quests/route.ts`。認証は実行環境の ADC で、キーはクライアントに渡さない）
 
 ## 環境
 - stg / prod の構成・デプロイ方法は [docs/environments.md](docs/environments.md) を参照。

@@ -63,7 +63,11 @@ export const AlbumScreen = ({ album }: AlbumScreenProps): React.ReactElement => 
           return (
             <li key={entry.id} className="relative">
               <span aria-hidden="true" className={cx("absolute top-6 -left-[1.95rem] size-4 rounded-full border border-line", TONE_FILL[mood.tone])} />
-              <button type="button" onClick={() => setOpenId(entry.id)} className="block w-full text-left rounded-3xl focus-visible:focus-ring">
+              <button
+                type="button"
+                aria-label={`${entry.walkedOn} ${entry.dest}の思い出を開く（${mood.label}・+${entry.extraMinutes}分・写真 ${entry.shots.filter(Boolean).length} 枚）`}
+                onClick={() => setOpenId(entry.id)}
+                className="block w-full text-left rounded-3xl focus-visible:focus-ring">
                 <StickerCard className="flex gap-3 p-3 transition-transform duration-150 ease-out hover:-translate-y-0.5">
                   <div className="w-20 shrink-0 border border-line bg-sticker p-1 shadow-sticker-sm">
                     <PhotoArt tone={cover.tone} label={`${cover.checkpoint}の写真（見本）`} className="aspect-square" />

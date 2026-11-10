@@ -16,7 +16,10 @@ const DetourDoodle = (): React.ReactElement => (
   </svg>
 );
 
-/** 選んだ寄り道時間から、全体の所要時間と最短との差を見せる付箋。 */
+/** 固定値であることを画面で知らせる文言（RULES: 固定値を本物の結果のように見せない）。 */
+export const ETA_SAMPLE_NOTE = "目安（固定の見本値。実際の経路からは計算していません）";
+
+/** 選んだ寄り道時間から、全体の所要時間と最短との差を見せる付箋。値は flow.ts の固定値で、経路から計算していない。 */
 export const EtaNote = ({ budget }: EtaNoteProps): React.ReactElement => {
   const { total, extra } = eta(budget);
   return (
@@ -25,6 +28,7 @@ export const EtaNote = ({ budget }: EtaNoteProps): React.ReactElement => {
       <p className="flex flex-col">
         <span className="font-hand text-xl">約{total}分</span>
         <span className="font-note text-sm text-ink-soft">最短より{extra}分長い寄り道</span>
+        <span className="font-note text-xs text-ink-soft">{ETA_SAMPLE_NOTE}</span>
       </p>
     </StickerCard>
   );

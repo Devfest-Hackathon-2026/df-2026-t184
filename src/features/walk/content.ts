@@ -101,12 +101,15 @@ export type AlbumEntry = {
   quests: readonly Quest[];
   shots: readonly boolean[];
   memos: readonly string[];
+  /** 見本の記録。ポイント・称号には数えない。 */
+  sample?: boolean;
 };
 
 // 見本のアルバム。ハンコ帳がいくつか埋まって見えるように 2 件置いている。
 export const SAMPLE_ALBUM: readonly AlbumEntry[] = [
   {
     id: "sample-yanaka",
+    sample: true,
     dest: "谷中銀座",
     mood: MoodId.Retro,
     walkedOn: "11月4日",
@@ -117,6 +120,7 @@ export const SAMPLE_ALBUM: readonly AlbumEntry[] = [
   },
   {
     id: "sample-kiyosumi",
+    sample: true,
     dest: "清澄白河",
     mood: MoodId.Quiet,
     walkedOn: "11月1日",

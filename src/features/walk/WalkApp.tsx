@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 
 import { PaperScreen } from "@/components/sticker";
 
-import { fetchQuestsFromApi } from "./api";
+import { requestQuests as requestQuestsFromApi } from "./api";
 import { moodById, questsOf, SAMPLE_ALBUM, type AlbumEntry } from "./content";
 import { eta, initialWalk, QuestSource, Screen, walkReducer, type WalkAction, type WalkState } from "./flow";
 import { AlbumScreen } from "./screens/AlbumScreen";
@@ -82,11 +82,14 @@ export const WalkApp = ({ initial, live = false, onboarding = false }: WalkAppPr
     }
     const controller = new AbortController();
     request.current = controller;
-    void fetchQuestsFromApi({ dest, mood, budget }, controller.signal).then((quests) => {
+    void requestQuestsFromApi({ dest, mood, budget }, controller.signal).then((outcome) => {
       if (controller.signal.aborted) return;
       rawDispatch({
         type: "receivePlan",
-        plan: quests ? { source: QuestSource.Ai, quests } : { source: QuestSource.Fallback, quests: sample },
+        plan:
+          "quests" in outcome
+            ? { source: QuestSource.Ai, quests: outcome.quests }
+            : { source: QuestSource.Fallback, quests: sample, failure: outcome.failure },
       });
     });
   };

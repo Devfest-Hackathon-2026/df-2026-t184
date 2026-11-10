@@ -1,0 +1,8 @@
+# 依存・素材・データの出典
+
+| 名前 | 用途 | 出典 | ライセンス |
+| --- | --- | --- | --- |
+| 国土地理院 標高タイル `dem5a_png`（数値標高モデル 5m メッシュ）z15 | `/terrain` の標高グリッド `public/terrain/ueno-yanaka.elevation.json` の元データ（2026-11-09 取得、生成手順は `scripts/terrain/README.md`） | [地理院タイルの仕様](https://maps.gsi.go.jp/development/siyou.html) / [標高タイルの詳細仕様](https://maps.gsi.go.jp/development/demtile.html) / [コンテンツ一覧](https://maps.gsi.go.jp/development/ichiran.html) | [国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html)（特段の記載が無い限り[公共データ利用規約 第1.0版（PDL1.0）](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0)を適用。出典の記載が必要で、加工した場合は加工したことも記載する。2026-11-10 に両ページを開いて確認） |
+| 3D都市モデル（Project PLATEAU）台東区 2024年度 CityGML | `/terrain` の日陰グリッド `public/terrain/ueno-yanaka.shade.json` の元データ（LOD1 建物。2026-11-10 取得の zip、元データはコミットしない） | [G空間情報センター](https://www.geospatial.jp/ckan/dataset/plateau-13106-taito-ku-2024) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)（出典: 国土交通省 Project PLATEAU） |
+| NOAA の太陽位置近似式 | `src/lib/terrain/sun.ts` の太陽高度・方位の計算 | [NOAA Solar Calculations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF)（`sun.ts` の冒頭コメントに記載） | ライセンス表記は（未記入: 要調査）。式を自前実装し、文書・データは再配布しない |
+| WGS84 での緯度1度の長さの近似式（m1 + m2·cos2φ + m3·cos4φ） | `src/lib/terrain/geo.ts` の `METERS_PER_DEG_LAT = 111132.954`（近似式の定数項 m1）と `scripts/terrain/` のグリッド生成・`src/lib/terrain/geo.test.ts` の検証式 | [Wikipedia「Latitude」§ Meridian distance on the ellipsoid](https://en.wikipedia.org/wiki/Latitude#Meridian_distance_on_the_ellipsoid)（m1=111132.954m, m2=−559.822m, m3=1.175m の記載を 2026-11-10 に開いて確認） | 数式自体はライセンス対象外と判断。式を自前実装し、データは再配布しない |

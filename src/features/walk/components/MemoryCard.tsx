@@ -14,7 +14,14 @@ type MemoryCardProps = Pick<WalkState, "dest" | "shots" | "memos"> & {
   walkedOn: string;
 };
 
-/** 共有する思い出カード。写真の帯、Gemini の文章、地点ごとのメモ、達成のハンコを 1 枚にまとめる。 */
+/** 思い出カードの文章が見本であることの知らせ。AI はまだ文章を書いていない。 */
+export const MEMORY_ESSAY_NOTE = "文章は気分ごとの見本です（AIが写真やメモから書いたものではありません）";
+/** 寄り道の分数が経路から計算した値ではないことの知らせ。 */
+export const MEMORY_MINUTES_NOTE = "分数は選んだ寄り道時間からの目安です（実際に歩いた時間ではありません）";
+/** 写真の欄が見本の絵であることの知らせ。 */
+export const MEMORY_PHOTO_NOTE = "写真は見本の絵です（実際には撮影していません）";
+
+/** 共有する思い出カード。写真の帯、見本の文章、地点ごとのメモ、達成のハンコを 1 枚にまとめる。 */
 export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, walkedOn }: MemoryCardProps): React.ReactElement => (
   <StickerCard className="flex flex-col gap-4 pt-8">
 
@@ -61,9 +68,8 @@ export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, wal
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           <span className={cx(CHIP_CLASS, TONE_FILL[mood.tone])}>{mood.label}</span>
-          <span className={cx(CHIP_CLASS, "bg-pink")}>+{extraMinutes}分</span>
+          <span className={cx(CHIP_CLASS, "bg-pink")}>+{extraMinutes}分（目安）</span>
         </div>
-        <p className="text-xs text-ink-soft">文章は写真とメモから Gemini が生成</p>
       </div>
       <Stamp className="mr-2 shrink-0">
         寄り道
@@ -73,5 +79,11 @@ export const MemoryCard = ({ dest, mood, quests, shots, memos, extraMinutes, wal
         {CHECKPOINTS}/{CHECKPOINTS}
       </Stamp>
     </footer>
+
+    <ul className="flex flex-col gap-1 text-xs text-ink-soft">
+      <li>{MEMORY_PHOTO_NOTE}</li>
+      <li>{MEMORY_ESSAY_NOTE}</li>
+      <li>{MEMORY_MINUTES_NOTE}</li>
+    </ul>
   </StickerCard>
 );

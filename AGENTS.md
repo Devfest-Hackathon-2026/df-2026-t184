@@ -52,3 +52,12 @@ stg と prod は 1 つの GCP プロジェクト `df-2026-t184-prod` に同居�
 
 - PRや設計の議論はGitHubで行う。
 - 締め切り前や作業が止まっているときなど、急ぎの連絡はDiscordでメンションする。
+
+## superloop（夜間の自律開発）
+
+このリポジトリは superloop（HOOTL 自律開発ハーネス）でも開発する。
+
+- プロジェクトのルールは `docs/RULES.md`、仕様は `docs/SPEC.md`、起動・テスト・デプロイの手順は `docs/RUNBOOK.md` にある。`docs/RULES.md` の権限はこのファイルの「判断のルール」より優先する（PM 指示 2026-11-10）
+- 合否は `test-results.json` にあり、書き換えるのは Router（superloop）だけ
+- 技術の選定は `docs/DECISIONS.md`、依存・素材の出典は `docs/ASSETS.md` に記録する
+- 数値・統計には開いて確かめた出典の URL を付ける。「（未記入: 要調査）」を推測で埋めない

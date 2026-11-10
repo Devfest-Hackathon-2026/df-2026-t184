@@ -1,0 +1,6 @@
+# >>> superloop >>>
+# 並列の worker が同時に追記するファイルは、両方の追記を残す
+docs/DECISIONS.md merge=union
+docs/ASSETS.md merge=union
+PROGRESS.md merge=union
+# <<< superloop <<<

@@ -7,11 +7,15 @@ import { ButtonSize, ButtonVariant, IconName, IconSticker, ScreenHeading, Sticke
 import { MemoryCard } from "../components/MemoryCard";
 import { moodById, questsOf } from "../content";
 import { eta, type WalkAction, type WalkState } from "../flow";
+import { POINTS_NOT_SAVED_NOTE, walkPoints } from "../points";
 
 const SHARE_ICON_SIZE = 28;
 const TOAST_VISIBLE_MS = 2400;
-// WalkState にまだ歩いた日がないので、見本の日付を置いている。
-const SAMPLE_WALKED_ON = "2026年11月5日";
+// 歩き終えた日として、思い出カードを開いた日を出す（固定の見本日付は本物の記録に見えるので使わない）。
+const todayLabel = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+};
 
 type MemoryScreenProps = {
   state: WalkState;
@@ -49,8 +53,13 @@ export const MemoryScreen = ({ state, dispatch, onOpenFeed }: MemoryScreenProps)
         shots={state.shots}
         memos={state.memos}
         extraMinutes={eta(state.budget).extra}
-        walkedOn={SAMPLE_WALKED_ON}
+        walkedOn={todayLabel()}
       />
+
+      <p className="font-hand text-base text-ink">
+        この寄り道で +{walkPoints(state)} pt（ハンコ帳で称号を見られます）
+        <span className="block font-note text-xs text-ink-soft">{POINTS_NOT_SAVED_NOTE}</span>
+      </p>
 
       <div className="flex flex-col gap-3 pt-2">
         <StickerButton size={ButtonSize.Lg} onClick={share}>

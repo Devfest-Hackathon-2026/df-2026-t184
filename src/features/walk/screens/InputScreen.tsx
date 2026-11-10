@@ -129,10 +129,8 @@ export const InputScreen = ({ state, dispatch }: InputScreenProps): React.ReactE
         {question.id === Question.Mood ? (
           <MoodPicker
             value={state.mood}
-            onChange={(mood) => {
-              dispatch({ type: "pickMood", mood });
-              setIndex(index + 1);
-            }}
+            onChange={(mood) => dispatch({ type: "pickMood", mood })}
+            onCommit={() => setIndex(index + 1)}
           />
         ) : null}
         {question.id === Question.Budget ? (

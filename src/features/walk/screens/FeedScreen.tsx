@@ -4,6 +4,8 @@ import { FeedCard } from "../components/FeedCard";
 import { SAMPLE_FEED } from "../content";
 
 const ROUND_ICON_SIZE = 44;
+/** 友だちの投稿が見本データであることの知らせ。 */
+export const FEED_SAMPLE_NOTE = "ここに並ぶのは見本の投稿です（実在の人の投稿ではありません）";
 
 type FeedScreenProps = { onBack?: () => void };
 
@@ -25,6 +27,9 @@ export const FeedScreen = ({ onBack }: FeedScreenProps): React.ReactElement => (
       <span />
     </header>
     <p className="text-center font-note text-xs text-ink-soft">友だちが見つけた、いつもの道の小さな発見</p>
+    <p role="note" className="mx-1 rounded-(--radius-chip) border border-line bg-sticker px-3 py-2 text-center font-note text-xs text-ink">
+      {FEED_SAMPLE_NOTE}
+    </p>
 
     <ul aria-label="友だちの寄り道ログ" className="flex flex-col gap-4">
       {SAMPLE_FEED.map((post) => (

@@ -3,6 +3,8 @@ import { ButtonVariant, cx, IconName, IconSticker, StickerButton, Tone } from "@
 const SHOOT_ICON_SIZE = 56;
 const RETAKE_ICON_SIZE = 28;
 const SAMPLE_PHOTO_LABEL = "撮影した写真（見本）";
+/** 撮影ボタンを押しても本物の写真は撮らず、見本の絵を貼ることの知らせ。 */
+export const PHOTO_SAMPLE_NOTE = "見本の絵です（実際のカメラ撮影はまだしません）";
 
 const toneVar = (tone: Tone, deep: boolean): string => `var(--color-${tone}${deep ? "-deep" : ""})`;
 
@@ -56,6 +58,7 @@ export const PhotoSlot = ({ taken, tone, caption, onShoot }: PhotoSlotProps): Re
           <PhotoArt tone={tone} label={SAMPLE_PHOTO_LABEL} className="aspect-4/3" />
         </div>
         <figcaption className="pt-2 text-center font-hand text-sm text-ink">{caption}</figcaption>
+        <p className="text-center font-note text-xs text-ink-soft">{PHOTO_SAMPLE_NOTE}</p>
       </figure>
       <StickerButton variant={ButtonVariant.Plain} onClick={onShoot}>
         <IconSticker name={IconName.Camera} tone={tone} size={RETAKE_ICON_SIZE} />

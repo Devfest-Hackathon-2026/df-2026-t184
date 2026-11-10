@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 // 新デザインの画面。Gemini のクエストと Google Maps の地図を使い、キーがなければ見本と手描き地図で動く。
-// 実アプリ（/ の YorimichiApp）はそのまま残す。
+// / はここへ移る（src/app/page.tsx）。旧 YorimichiApp は src/components に残してある。
 export default function WalkPage() {
   return (
     <div className="font-note text-ink">

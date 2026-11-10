@@ -18,6 +18,8 @@ type VertexClientOptions = {
 };
 
 export type VertexClient = {
+  /** ログに出すためのモデル名。 */
+  model: string;
   generateContent: (body: unknown, init?: { signal?: AbortSignal }) => Promise<Response>;
 };
 
@@ -27,6 +29,7 @@ const hostOf = (location: string): string =>
 export const createVertexClient = ({ project, location, model, getAccessToken, fetch: fetchFn = fetch }: VertexClientOptions): VertexClient => {
   const url = `https://${hostOf(location)}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
   return {
+    model,
     async generateContent(body, init) {
       let token: string;
       try {

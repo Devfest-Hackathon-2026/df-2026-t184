@@ -59,11 +59,12 @@ export const OnboardingScreen = ({ onDone }: OnboardingScreenProps): React.React
       </div>
 
       <div className="mt-auto flex flex-col gap-4">
-        <ol aria-label={`${SLIDES.length} 枚中 ${index + 1} 枚目`} className="flex justify-center gap-1.5">
+        {/* 中身のない点の並びを list として読ませず、何枚目かを 1 つの画像の名前で伝える。 */}
+        <div role="img" aria-label={`${SLIDES.length} 枚中 ${index + 1} 枚目`} className="flex justify-center gap-1.5">
           {SLIDES.map((s, i) => (
-            <li key={s.title} className={cx("h-1.5 rounded-full transition-all duration-200", i === index ? "w-6 bg-accent" : "w-1.5 bg-line")} />
+            <span key={s.title} className={cx("h-1.5 rounded-full transition-all duration-200", i === index ? "w-6 bg-accent" : "w-1.5 bg-line")} />
           ))}
-        </ol>
+        </div>
         <StickerButton size={ButtonSize.Lg} className="w-full" onClick={() => (isLast ? onDone() : setIndex(index + 1))}>
           {isLast ? "はじめる" : "次へ"}
         </StickerButton>
